@@ -2,6 +2,8 @@
 
 #include "babydb.hpp"
 
+#include "common/macro.hpp"
+
 #include <map>
 #include <memory>
 #include <shared_mutex>
@@ -12,8 +14,13 @@ namespace babydb {
 class Table;
 class Index;
 
+//! Catalog is not thread-safe. Since it's updated infrequently, when update the catalog,
+//! you should hold the database's latch.
 class Catalog {
 public:
+    Catalog() = default;
+
+    DISALLOW_COPY_AND_MOVE(Catalog);
 
     void CreateTable(std::unique_ptr<Table> table);
 
@@ -22,10 +29,6 @@ public:
     void CreateIndex(std::unique_ptr<Index> index);
 
     void DropIndex(const std::string &index_name);
-
-    std::shared_lock<std::shared_mutex> GetLock() {
-        return std::shared_lock<std::shared_mutex>(latch_);
-    }
 
     Table* FetchTable(const std::string &table_name);
 
@@ -36,8 +39,6 @@ private:
     std::map<std::string, std::unique_ptr<Table>> tables_;
 
     std::map<std::string, std::unique_ptr<Index>> indexes_;
-
-    std::shared_mutex latch_;
 };
 
 }

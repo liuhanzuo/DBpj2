@@ -2,7 +2,7 @@
 
 namespace babydb {
 
-ReadTableGuard::ReadTableGuard(Table &table) : table_(table), drop_tag_(false) {
+ReadTableGuard::ReadTableGuard(Table &table) : table_(table), drop_tag_(false), rows_(table.rows_) {
     table_.latch_.lock_shared();
 }
 
@@ -17,7 +17,7 @@ void ReadTableGuard::Drop() {
     }
 }
 
-WriteTableGuard::WriteTableGuard(Table &table) : table_(table), drop_tag_(false) {
+WriteTableGuard::WriteTableGuard(Table &table) : table_(table), drop_tag_(false), rows_(table.rows_) {
     table_.latch_.lock();
 }
 

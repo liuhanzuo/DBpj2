@@ -1,0 +1,5 @@
+# googletest
+# url: https://github.com/google/googletest.git
+# tag: v1.16.0
+# commit hash: Ia1b901cf9c0a0e148eec419ada0e0b56aba2dd3d
+# commit hash date: Feb 21 2025

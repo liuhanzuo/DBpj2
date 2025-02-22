@@ -32,17 +32,9 @@ endif()
 # COMPILER SETUP
 # #####################################################################################################################
 
-# if(NOT DEFINED BABYDB_SANITIZER)
-#         set(BABYDB_SANITIZER address)
-# endif()
-
-# message("Build mode: ${CMAKE_BUILD_TYPE}")
-# message("${BABYDB_SANITIZER} sanitizer will be enabled in debug mode.")
-
 # Compiler flags.
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Werror")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb -fno-omit-frame-pointer -fno-optimize-sibling-calls")
-# set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=${BABYDB_SANITIZER}")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
@@ -53,12 +45,15 @@ message(STATUS "CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
 # Output directory.
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Includes.
 set(BABYDB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/include)
 # set(BABYDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test/include)
 
 include_directories(${BABYDB_SRC_INCLUDE_DIR} ${BABYDB_TEST_INCLUDE_DIR})
+include_directories(BEFORE src)
 
+add_subdirectory(third_party)
 add_subdirectory(src)
-# add_subdirectory(test)
+add_subdirectory(test)

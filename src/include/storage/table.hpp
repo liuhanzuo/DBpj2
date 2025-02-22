@@ -2,6 +2,8 @@
 
 #include "babydb.hpp"
 
+#include "common/macro.hpp"
+
 #include <mutex>
 #include <set>
 #include <string>
@@ -9,8 +11,6 @@
 #include <vector>
 
 namespace babydb {
-
-typedef std::vector<data_t> Tuple;
 
 struct TupleMeta {
     bool is_deleted_;
@@ -27,32 +27,41 @@ typedef std::vector<std::string> Schema;
 class ReadTableGuard;
 class WriteTableGuard;
 
+/** 
+ * When access the table's rows, you should hold the latch of the table.
+ * We design the table guard. When you hold the table guard, you can safely use the rows.
+ * Since it's only a latch, you need to make sure,
+ * 1. At any time, you can hold at most 1 table guard.
+ * 2. When you get the table guard, drop it after finite instructions
+ *    (so you should not require another latch during holding the guard).
+ * 3. When you hold the table guard, you should keep using the table,
+ *    otherwise you should drop it and require it later.
+ */
 class Table {
 public:
-    Table(Schema schema, const std::string &name)
+    const std::string name_;
+
+    const Schema schema_;
+
+public:
+    Table(const Schema &schema, const std::string &name)
         : schema_(schema), name_(name) {}
 
+    DISALLOW_COPY_AND_MOVE(Table);
+    //! Get the read permission to the table.
     ReadTableGuard GetReadTableGuard();
-
+    //! Get the read and write permission to the table.
     WriteTableGuard GetWriteTableGuard();
 
-    const std::string& GetName() const {
-        return name_;
-    }
-
-    const std::set<std::string> GetIndexes() const {
-        return indexes_;
+    const std::string GetIndex() const {
+        return index_name_;
     }
 
 private:
 
-    Schema schema_;
-
     std::vector<Row> rows_;
-
-    std::string name_;
-
-    std::set<std::string> indexes_; 
+    //! Empty string means no index. To simplify, a table can have at most 1 index.
+    std::string index_name_; 
 
     std::shared_mutex latch_;
 
@@ -65,15 +74,11 @@ class ReadTableGuard {
 public:
     ~ReadTableGuard();
 
+    DISALLOW_COPY(ReadTableGuard);
+
     void Drop();
 
-    Row FetchRow(idx_t row_id) const {
-        return table_.rows_[row_id];
-    }
-
-    idx_t Count() const {
-        return static_cast<idx_t>(table_.rows_.size());
-    }
+    const std::vector<Row> &rows_;
 
 private:
     ReadTableGuard(Table &table);
@@ -90,20 +95,11 @@ class WriteTableGuard {
 public:
     ~WriteTableGuard();
 
+    DISALLOW_COPY(WriteTableGuard);
+
     void Drop();
 
-    idx_t InsertRow(const Row &row) const {
-        table_.rows_.push_back(row);
-        return table_.rows_.size() - 1;
-    }
-
-    Row& FetchRow(idx_t row_id) const {
-        return table_.rows_[row_id];
-    }
-
-    idx_t Count() const {
-        return static_cast<idx_t>(table_.rows_.size());
-    }
+    std::vector<Row> &rows_;
 
 private:
     WriteTableGuard(Table &table);
