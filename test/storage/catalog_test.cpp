@@ -13,8 +13,9 @@ public:
     ~FakeIndex() override {}
 
 private:
-    bool InsertEntry(const Tuple &tuple, idx_t row_id) override { return false; };
-    void EraseEntry(const Tuple &tuple, idx_t row_id) override {};
+    void InsertEntry(const data_t &, idx_t) override {};
+    void EraseEntry(const data_t &, idx_t) override {};
+    idx_t ScanKey(const data_t &) { return INVALID_ID; };
 };
 
 TEST(CatalogTest, BasicTest) {

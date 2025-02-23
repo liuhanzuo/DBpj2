@@ -9,7 +9,7 @@
 
 namespace babydb {
 
-//! We only support index with one column as the key.
+//! We only support index with the primary key.
 //! Index may be not thread-safe, so you should use indexes with the table guard.
 class Index {
 public:
@@ -27,9 +27,11 @@ public:
 
     DISALLOW_COPY_AND_MOVE(Index);
 
-    virtual bool InsertEntry(const Tuple &tuple, idx_t row_id) = 0;
+    virtual void InsertEntry(const data_t &key, idx_t row_id) = 0;
 
-    virtual void EraseEntry(const Tuple &tuple, idx_t row_id) = 0;
+    virtual void EraseEntry(const data_t &key, idx_t row_id) = 0;
+
+    virtual idx_t ScanKey(const data_t &key) = 0;
 
 private:
 

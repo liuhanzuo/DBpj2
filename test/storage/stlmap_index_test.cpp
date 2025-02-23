@@ -14,15 +14,19 @@ TEST(StlmapIndexTest, BasicTest) {
     }
     StlmapIndex index("index", table, 0);
 
-    index.InsertEntry(Tuple{2, 3}, 1);
+    index.InsertEntry(2, 1);
 
     EXPECT_EQ(index.Lowerbound(3), index.End());
     EXPECT_EQ(index.Lowerbound(0)->second, 0);
     EXPECT_EQ(index.Lowerbound(1)->second, 1);
 
-    EXPECT_EQ(index.InsertEntry(Tuple{2, 4}, 2), false);
+    EXPECT_ANY_THROW(index.InsertEntry(2, 2));
 
-    index.EraseEntry(Tuple{0, 1}, 0);
+    EXPECT_EQ(index.ScanKey(0), 0);
+
+    index.EraseEntry(0, 0);
+
+    EXPECT_EQ(index.ScanKey(0), INVALID_ID);
 
     EXPECT_EQ(index.Lowerbound(0)->second, 1);
 }

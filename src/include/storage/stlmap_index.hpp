@@ -14,9 +14,11 @@ public:
 
     ~StlmapIndex() override {};
 
-    bool InsertEntry(const Tuple &tuple, idx_t row_id) override;
+    void InsertEntry(const data_t &key, idx_t row_id) override;
 
-    void EraseEntry(const Tuple &tuple, idx_t row_id) override;
+    void EraseEntry(const data_t &key, idx_t row_id) override;
+
+    idx_t ScanKey(const data_t &key) override ;
 
     typedef std::map<data_t, idx_t>::iterator Iterator;
 

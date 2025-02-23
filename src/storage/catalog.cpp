@@ -19,7 +19,7 @@ void Catalog::DropTable(const std::string &table_name) {
     if (position == tables_.end()) {
         throw std::logic_error("DROP TABLE: table does not exist");
     }
-    if (position->second->index_name_ != "") {
+    if (position->second->index_name_ != INVALID_NAME) {
         indexes_.erase(position->second->index_name_);
     }
     tables_.erase(position);
@@ -33,7 +33,7 @@ void Catalog::CreateIndex(std::unique_ptr<Index> index) {
     if (table_position == tables_.end()) {
         throw std::logic_error("CREATE INDEX: table does not exist");
     }
-    if (table_position->second->index_name_ != "") {
+    if (table_position->second->index_name_ != INVALID_NAME) {
         throw std::logic_error("CREATE INDEX: table already has an index");
     }
     table_position->second->index_name_ = index->name_;
@@ -46,7 +46,7 @@ void Catalog::DropIndex(const std::string &index_name) {
         throw std::logic_error("DROP INDEX: index does not exist");
     }
     auto table_position = tables_.find(position->second->table_name_);
-    table_position->second->index_name_ = "";
+    table_position->second->index_name_ = INVALID_NAME;
     indexes_.erase(position);
 }
 

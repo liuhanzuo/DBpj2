@@ -12,7 +12,17 @@ typedef int64_t data_t;
 //! babydb's index type
 typedef int64_t idx_t;
 
-typedef std::vector<data_t> Tuple;
+const std::string INVALID_NAME = "";
+const idx_t INVALID_ID = -1;
+
+class Tuple : public std::vector<data_t> {
+public:
+    using std::vector<data_t>::vector;
+
+    data_t KeyFromTuple(idx_t key_position) const {
+        return (*this)[key_position];
+    }
+};
 
 class Exception : public std::exception {
 public:
