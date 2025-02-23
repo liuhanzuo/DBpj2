@@ -38,4 +38,18 @@ private:
 friend class Catalog;
 };
 
+struct RangeInfo {
+    const data_t &start;
+    const data_t &end;
+    bool contain_start = true;
+    bool contain_end = true;
+};
+
+class RangeIndex : public Index {
+public:
+    using Index::Index;
+
+    virtual void ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids) = 0;
+};
+
 }

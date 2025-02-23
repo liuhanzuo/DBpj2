@@ -3,7 +3,7 @@
 namespace babydb {
 
 StlmapIndex::StlmapIndex(const std::string &name, Table &table, idx_t key_position)
-    : Index(name, table, key_position) {
+    : RangeIndex(name, table, key_position) {
     auto read_guard = table.GetReadTableGuard();
     auto &rows = read_guard.rows_;
     for (idx_t row_id = 0; row_id < rows.size(); row_id++) {
@@ -33,12 +33,23 @@ idx_t StlmapIndex::ScanKey(const data_t &key) {
     return ite->second;
 }
 
-StlmapIndex::Iterator StlmapIndex::Lowerbound(data_t key) {
-    return index_.lower_bound(key);
-}
-
-StlmapIndex::Iterator StlmapIndex::End() {
-    return index_.end();
+void StlmapIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids) {
+    row_ids.clear();
+    std::map<data_t, idx_t>::iterator start_ite;
+    std::map<data_t, idx_t>::iterator end_ite;
+    if (range.contain_start) {
+        start_ite = index_.lower_bound(range.start);
+    } else {
+        start_ite = index_.upper_bound(range.start);
+    }
+    if (range.contain_end) {
+        end_ite = index_.upper_bound(range.end);
+    } else {
+        end_ite = index_.lower_bound(range.end);
+    }
+    for (auto ite = start_ite; ite != end_ite; ite++) {
+        row_ids.push_back(ite->second);
+    }
 }
 
 }
