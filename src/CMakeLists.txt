@@ -1,8 +1,13 @@
 add_subdirectory(storage)
+add_subdirectory(concurrency)
 
-add_library(babydb STATIC ${ALL_OBJECT_FILES})
+add_library(babydb
+        STATIC
+        babydb.cpp
+        ${ALL_OBJECT_FILES})
 
 set(BABYDB_LIBS
+        babydb_concurrency
         babydb_storage
         )
 

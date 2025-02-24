@@ -1,7 +1,6 @@
 #pragma once
 
-#include "babydb.hpp"
-
+#include "common/typedefs.hpp"
 #include "common/macro.hpp"
 
 #include <map>
@@ -35,7 +34,6 @@ public:
     Index* FetchIndex(const std::string &index_name);
 
 private:
-
     std::map<std::string, std::unique_ptr<Table>> tables_;
 
     std::map<std::string, std::unique_ptr<Index>> indexes_;

@@ -1,7 +1,6 @@
 #pragma once
 
-#include "babydb.hpp"
-
+#include "common/typedefs.hpp"
 #include "storage/index.hpp"
 
 #include <map>
@@ -10,7 +9,7 @@ namespace babydb {
 
 class StlmapIndex : public RangeIndex {
 public:
-    StlmapIndex(const std::string &name, Table &table, idx_t key_position);
+    explicit StlmapIndex(const std::string &name, Table &table, idx_t key_position);
 
     ~StlmapIndex() override {};
 
@@ -23,7 +22,6 @@ public:
     void ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids) override;
 
 private:
-
     std::map<data_t, idx_t> index_;
 };
 

@@ -6,10 +6,10 @@ namespace babydb {
 
 TEST(StlmapIndexTest, BasicTest) {
     Schema schema{"c0", "c1"};
-    Table table(schema, "table");
+    Table table("table", schema);
     {
     auto write_guard = table.GetWriteTableGuard();
-    write_guard.rows_.push_back({Tuple{0, 1}, TupleMeta{false}});
+    write_guard.Rows().push_back({Tuple{0, 1}, TupleMeta{false}});
     write_guard.Drop();
     }
     StlmapIndex index("index", table, 0);

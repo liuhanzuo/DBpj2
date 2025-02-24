@@ -1,7 +1,6 @@
 #pragma once
 
-#include "babydb.hpp"
-
+#include "common/typedefs.hpp"
 #include "common/macro.hpp"
 
 #include <mutex>
@@ -44,8 +43,8 @@ public:
     const Schema schema_;
 
 public:
-    Table(const Schema &schema, const std::string &name)
-        : schema_(schema), name_(name) {}
+    explicit Table(const std::string &name, const Schema &schema)
+        : name_(name), schema_(schema) {}
 
     DISALLOW_COPY_AND_MOVE(Table);
     //! Get the read permission to the table.
@@ -58,58 +57,59 @@ public:
     }
 
 private:
-
     std::vector<Row> rows_;
     //! Empty string means no index. To simplify, a table can have at most 1 index.
     std::string index_name_; 
 
     std::shared_mutex latch_;
 
-friend class ReadTableGuard;
-friend class WriteTableGuard;
 friend class Catalog;
 };
 
 class ReadTableGuard {
 public:
-    ~ReadTableGuard();
+    explicit ReadTableGuard(const std::vector<Row> &rows, std::shared_mutex &latch)
+        : rows_(&rows), latch_(latch) {
+        latch_.lock_shared();    
+    }
+
+    ~ReadTableGuard() { Drop(); }
 
     DISALLOW_COPY(ReadTableGuard);
 
     void Drop();
 
-    const std::vector<Row> &rows_;
+    const std::vector<Row>& Rows() { return *rows_; }
 
 private:
-    ReadTableGuard(Table &table);
+    const std::vector<Row> *rows_;
 
-private:
-    Table &table_;
+    std::shared_mutex& latch_;
 
-    bool drop_tag_;
-
-friend class Table;
+    bool drop_tag_{false};
 };
 
 class WriteTableGuard {
 public:
-    ~WriteTableGuard();
+    explicit WriteTableGuard(std::vector<Row> &rows, std::shared_mutex &latch)
+        : rows_(&rows), latch_(latch) {
+        latch_.lock();
+    }
+
+    ~WriteTableGuard() { Drop(); }
 
     DISALLOW_COPY(WriteTableGuard);
 
     void Drop();
 
-    std::vector<Row> &rows_;
+    std::vector<Row>& Rows() { return *rows_; }
 
 private:
-    WriteTableGuard(Table &table);
+    std::vector<Row> *rows_;
 
-private:
-    Table &table_;
+    std::shared_mutex &latch_;
 
-    bool drop_tag_;
-
-friend class Table;
+    bool drop_tag_{false};
 };
 
 }

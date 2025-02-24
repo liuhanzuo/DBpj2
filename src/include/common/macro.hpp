@@ -1,4 +1,4 @@
-#include "babydb.hpp"
+#pragma once
 
 // Macros to disable copying and moving
 #define DISALLOW_COPY(cname)                        \

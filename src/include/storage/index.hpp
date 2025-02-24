@@ -1,7 +1,6 @@
 #pragma once
 
-#include "babydb.hpp"
-
+#include "common/typedefs.hpp"
 #include "common/macro.hpp"
 #include "storage/table.hpp"
 
@@ -32,8 +31,6 @@ public:
     virtual void EraseEntry(const data_t &key, idx_t row_id) = 0;
 
     virtual idx_t ScanKey(const data_t &key) = 0;
-
-private:
 
 friend class Catalog;
 };

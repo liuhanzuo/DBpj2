@@ -5,7 +5,7 @@ namespace babydb {
 StlmapIndex::StlmapIndex(const std::string &name, Table &table, idx_t key_position)
     : RangeIndex(name, table, key_position) {
     auto read_guard = table.GetReadTableGuard();
-    auto &rows = read_guard.rows_;
+    auto &rows = read_guard.Rows();
     for (idx_t row_id = 0; row_id < rows.size(); row_id++) {
         auto &row = rows[row_id];
         if (!row.tuple_meta_.is_deleted_) {
@@ -21,7 +21,7 @@ void StlmapIndex::InsertEntry(const data_t &key, idx_t row_id) {
     index_[key] = row_id;
 };
 
-void StlmapIndex::EraseEntry(const data_t &key, idx_t row_id) {
+void StlmapIndex::EraseEntry(const data_t &key, [[maybe_unused]] idx_t row_id) {
     index_.erase(key);
 };
 

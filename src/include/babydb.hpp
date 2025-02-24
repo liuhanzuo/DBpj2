@@ -1,37 +1,49 @@
 #pragma once
 
-#include <exception>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <string>
-#include <vector>
+#include "common/macro.hpp"
+#include "common/typedefs.hpp"
+#include "common/types.hpp"
+#include "concurrency/transaction.hpp"
 
-//! babydb's only data type
-typedef int64_t data_t;
-//! babydb's index type
-typedef int64_t idx_t;
+#include <memory>
+#include <shared_mutex>
 
-const std::string INVALID_NAME = "";
-const idx_t INVALID_ID = -1;
+namespace babydb {
 
-class Tuple : public std::vector<data_t> {
+class Catalog;
+class TransactionManager;
+class Transaction;
+
+//! Instance of BabyDB.
+class BabyDB {
 public:
-    using std::vector<data_t>::vector;
+    explicit BabyDB();
 
-    data_t KeyFromTuple(idx_t key_position) const {
-        return (*this)[key_position];
-    }
-};
+    ~BabyDB();
 
-class Exception : public std::exception {
-public:
-    Exception(std::string reason) : reason_(reason) {}
+    DISALLOW_COPY(BabyDB);
 
-    const char* what() {
-        return reason_.c_str();
-    }
+    void CreateTable(const std::string &table_name, const std::vector<std::string> &column_name);
+
+    void DropTable(const std::string &table_name);
+
+    void CreateIndex(const std::string &index_name, const std::string &table_name, idx_t key_position,
+                     IndexType index_type);
+
+    void DropIndex(const std::string &index_name);
+
+    std::unique_ptr<Transaction> CreateTxn();
+
+    bool Commit(Transaction &txn);
+
+    void Abort(Transaction &txn);
 
 private:
-    std::string reason_;
+    std::unique_ptr<Catalog> catalog_;
+
+    std::unique_ptr<TransactionManager> txn_mgr_;
+
+    std::shared_mutex db_lock_;
 };
+
+}
