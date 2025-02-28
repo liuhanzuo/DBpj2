@@ -1,5 +1,6 @@
-add_subdirectory(storage)
 add_subdirectory(concurrency)
+add_subdirectory(execution)
+add_subdirectory(storage)
 
 add_library(babydb
         STATIC
@@ -8,6 +9,7 @@ add_library(babydb
 
 set(BABYDB_LIBS
         babydb_concurrency
+        babydb_execution
         babydb_storage
         )
 

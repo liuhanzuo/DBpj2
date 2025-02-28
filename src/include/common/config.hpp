@@ -1,7 +1,9 @@
+#pragma once
+
 #include "common/typedefs.hpp"
 
 namespace babydb {
 
-const idx_t CHUNK_SIZE = 128;
+const idx_t CHUNK_SUGGEST_SIZE = 128;
 
 }
