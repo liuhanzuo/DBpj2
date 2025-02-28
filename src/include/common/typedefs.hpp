@@ -1,8 +1,9 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdexcept>
+#include <stdint.h>
 #include <string>
 #include <vector>
 
@@ -42,7 +43,7 @@ public:
         std::vector<idx_t> result;
         for (auto cname : key_schema) {
             auto position = this->find(cname);
-            if (position == -1) {
+            if (position == INVALID_ID) {
                 throw std::logic_error("Invalid key schema");
             }
             result.push_back(position);
@@ -57,7 +58,7 @@ private:
                 return i;
             }
         }
-        return -1;
+        return INVALID_ID;
     }
 };
 

@@ -23,7 +23,7 @@ public:
 
     DISALLOW_COPY(BabyDB);
 
-    void CreateTable(const std::string &table_name, const std::vector<std::string> &column_name);
+    void CreateTable(const std::string &table_name, const Schema &schema);
 
     void DropTable(const std::string &table_name);
 

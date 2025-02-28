@@ -17,9 +17,9 @@ BabyDB::~BabyDB() {
     txn_mgr_.reset();
 }
 
-void BabyDB::CreateTable(const std::string &table_name, const std::vector<std::string> &column_name) {
+void BabyDB::CreateTable(const std::string &table_name, const Schema &schema) {
     std::unique_lock lock(db_lock_);
-    catalog_->CreateTable(std::make_unique<Table>(table_name, column_name));
+    catalog_->CreateTable(std::make_unique<Table>(table_name, schema));
 }
 
 void BabyDB::DropTable(const std::string &table_name) {
