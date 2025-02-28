@@ -38,6 +38,10 @@ public:
 
     void Abort(Transaction &txn);
 
+    const Catalog& GetCatalog() {
+        return *catalog_;
+    }
+
 private:
     std::unique_ptr<Catalog> catalog_;
 
