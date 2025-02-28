@@ -16,11 +16,11 @@ public:
 
     const std::string table_name_;
 
-    const idx_t key_position_;
+    const idx_t key_attr_;
 
 public:
-    Index(const std::string &name, Table &table, idx_t key_position)
-        : name_(name), table_name_(table.name_), key_position_(key_position) {}
+    Index(const std::string &name, Table &table, idx_t key_attr)
+        : name_(name), table_name_(table.name_), key_attr_(key_attr) {}
 
     virtual ~Index() = default;
 

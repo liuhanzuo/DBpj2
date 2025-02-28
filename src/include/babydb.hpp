@@ -27,7 +27,7 @@ public:
 
     void DropTable(const std::string &table_name);
 
-    void CreateIndex(const std::string &index_name, const std::string &table_name, idx_t key_position,
+    void CreateIndex(const std::string &index_name, const std::string &table_name, const std::string &key_column,
                      IndexType index_type);
 
     void DropIndex(const std::string &index_name);

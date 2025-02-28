@@ -20,9 +20,6 @@ struct Row {
     TupleMeta tuple_meta_;
 };
 
-//! Since babydb only has one type, the schema of the table is just the column names.
-typedef std::vector<std::string> Schema;
-
 class ReadTableGuard;
 class WriteTableGuard;
 

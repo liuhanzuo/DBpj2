@@ -27,13 +27,15 @@ void BabyDB::DropTable(const std::string &table_name) {
     catalog_->DropTable(table_name);
 }
 
-void BabyDB::CreateIndex(const std::string &index_name, const std::string &table_name, idx_t key_position,
+void BabyDB::CreateIndex(const std::string &index_name, const std::string &table_name, const std::string &key_column,
                          IndexType index_type) {
     std::unique_lock lock(db_lock_);
     auto table = catalog_->FetchTable(table_name);
     if (table == nullptr) {
         throw std::logic_error("CREATE INDEX: table does not exist");
     }
+
+    auto key_position = table->schema_.GetKeyAttrs({key_column})[0];
 
     switch (index_type) {
     case Stlmap:

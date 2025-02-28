@@ -9,7 +9,7 @@ namespace babydb {
 
 class StlmapIndex : public RangeIndex {
 public:
-    explicit StlmapIndex(const std::string &name, Table &table, idx_t key_position);
+    explicit StlmapIndex(const std::string &name, Table &table, idx_t key_attr);
 
     ~StlmapIndex() override {};
 
