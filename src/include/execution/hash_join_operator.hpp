@@ -9,7 +9,7 @@ namespace babydb {
 
 class HashJoinOperator : public Operator {
 public:
-    HashJoinOperator(const ExecutionContext &execute_context,
+    HashJoinOperator(const ExecutionContext &exec_ctx,
                      const std::shared_ptr<Operator> &probe_child_operator,
                      const std::shared_ptr<Operator> &build_child_operator,
                      const std::string &probe_column_name,

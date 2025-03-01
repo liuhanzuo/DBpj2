@@ -8,8 +8,8 @@ namespace babydb {
 
 class FakeIndex : public Index {
 public:
-    FakeIndex(const std::string &name, Table &table, idx_t key_position)
-        : Index(name, table, key_position) {}
+    FakeIndex(const std::string &name, Table &table, const std::string &key_name)
+        : Index(name, table, key_name) {}
     ~FakeIndex() override {}
 
 private:
@@ -25,12 +25,12 @@ TEST(CatalogTest, BasicTest) {
 
     EXPECT_NO_THROW(catalog.CreateTable(std::make_unique<Table>("table0", schema)));
 
-    auto index0_0 = std::make_unique<FakeIndex>("index0_0", *catalog.FetchTable("table0"), 0);
+    auto index0_0 = std::make_unique<FakeIndex>("index0_0", *catalog.FetchTable("table0"), "a");
     EXPECT_NO_THROW(catalog.CreateIndex(std::move(index0_0)));
 
     EXPECT_NO_THROW(catalog.CreateTable(std::make_unique<Table>("table1", schema)));
 
-    auto index1_0 = std::make_unique<FakeIndex>("index1_0", *catalog.FetchTable("table1"), 0);
+    auto index1_0 = std::make_unique<FakeIndex>("index1_0", *catalog.FetchTable("table1"), "a");
     EXPECT_NO_THROW(catalog.CreateIndex(std::move(index1_0)));
 
     EXPECT_NO_THROW(catalog.CreateTable(std::make_unique<Table>("table2", schema)));
@@ -46,7 +46,7 @@ TEST(CatalogTest, BasicTest) {
     EXPECT_NO_THROW(catalog.DropIndex("index0_0"));
     EXPECT_EQ(catalog.FetchTable("table0")->GetIndex(), "");
 
-    auto index0_1 = std::make_unique<FakeIndex>("index0_1", *catalog.FetchTable("table0"), 0);
+    auto index0_1 = std::make_unique<FakeIndex>("index0_1", *catalog.FetchTable("table0"), "a");
     EXPECT_NO_THROW(catalog.CreateIndex(std::move(index0_1)));
     EXPECT_EQ(catalog.FetchTable("table0")->GetIndex(), "index0_1");
 
@@ -64,15 +64,15 @@ TEST(CatalogTest, ErrorTest) {
     EXPECT_NO_THROW(catalog.CreateTable(std::make_unique<Table>("table0", schema)));
     EXPECT_NO_THROW(catalog.CreateTable(std::make_unique<Table>("table1", schema)));
 
-    auto index0_0 = std::make_unique<FakeIndex>("index0_0", *catalog.FetchTable("table0"), 0);
+    auto index0_0 = std::make_unique<FakeIndex>("index0_0", *catalog.FetchTable("table0"), "a");
     EXPECT_NO_THROW(catalog.CreateIndex(std::move(index0_0)));
 
     EXPECT_ANY_THROW(catalog.CreateTable(std::make_unique<Table>("table0", schema)));
 
-    auto index0_1 = std::make_unique<FakeIndex>("index0_1", *catalog.FetchTable("table0"), 0);
+    auto index0_1 = std::make_unique<FakeIndex>("index0_1", *catalog.FetchTable("table0"), "a");
     EXPECT_ANY_THROW(catalog.CreateIndex(std::move(index0_1)));
 
-    index0_0 = std::make_unique<FakeIndex>("index0_0", *catalog.FetchTable("table1"), 0);
+    index0_0 = std::make_unique<FakeIndex>("index0_0", *catalog.FetchTable("table1"), "a");
     EXPECT_ANY_THROW(catalog.CreateIndex(std::move(index0_0)));
 
     EXPECT_ANY_THROW(catalog.DropTable("table"));

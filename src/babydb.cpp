@@ -35,11 +35,9 @@ void BabyDB::CreateIndex(const std::string &index_name, const std::string &table
         throw std::logic_error("CREATE INDEX: table does not exist");
     }
 
-    auto key_position = table->schema_.GetKeyAttrs({key_column})[0];
-
     switch (index_type) {
     case Stlmap:
-        catalog_->CreateIndex(std::make_unique<StlmapIndex>(index_name, *table, key_position));
+        catalog_->CreateIndex(std::make_unique<StlmapIndex>(index_name, *table, key_column));
         break;
     
     default:

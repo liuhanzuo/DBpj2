@@ -2,7 +2,11 @@
 
 #include "babydb.hpp"
 #include "execution/hash_join_operator.hpp"
+#include "execution/insert_operator.hpp"
 #include "execution/value_operator.hpp"
+#include "storage/catalog.hpp"
+#include "storage/index.hpp"
+#include "storage/table.hpp"
 
 #include <algorithm>
 
@@ -24,7 +28,9 @@ static std::vector<Tuple> RunOperator(Operator &test_operator, bool sort_output 
             results.push_back(row.first);
         }
     }
-    std::sort(results.begin(), results.end());
+    if (sort_output) {
+        std::sort(results.begin(), results.end());
+    }
     return results;
 }
 
@@ -72,5 +78,50 @@ TEST(OperatorTest, HashJoinBasicTest) {
     EXPECT_EQ(RunOperator(test_operator), answers);
     test_db.Commit(*txn);
 }
+
+TEST(OperatorTest, InsertBasicTest) {
+    BabyDB test_db(TestConfig());
+    Schema schema{"c0", "c1"};
+    test_db.CreateTable("table0", schema);
+    test_db.CreateIndex("index0_0", "table0", "c0", IndexType::Stlmap);
+    auto txn = test_db.CreateTxn();
+    auto exec_ctx = test_db.GetExecutionContext(txn);
+
+    std::vector<Tuple> insert_tuples;
+    insert_tuples.push_back({0, 1});
+    insert_tuples.push_back({2, 3});
+    insert_tuples.push_back({4, 5});
+
+    std::vector<Tuple> insert_tuples_copy = insert_tuples;
+
+    auto value_operator = std::make_shared<ValueOperator>(exec_ctx, Schema{"c0", "c1"}, std::move(insert_tuples_copy));
+    auto test_operator = InsertOperator(exec_ctx, value_operator, "table0");
+
+    EXPECT_EQ(RunOperator(test_operator), std::vector<Tuple>{});
+
+    std::vector<Tuple> results_table;
+    auto table = exec_ctx.catalog_.FetchTable("table0");
+    auto read_guard = table->GetReadTableGuard();
+    for (auto &row : read_guard.Rows()) {
+        results_table.push_back(row.tuple_);
+    }
+    std::sort(results_table.begin(), results_table.end());
+    EXPECT_EQ(results_table, insert_tuples);
+
+    std::vector<Tuple> results_index;
+    auto index = exec_ctx.catalog_.FetchIndex("index0_0");
+    for (data_t key = -1; key <= 5; key++) {
+        auto row_id = index->ScanKey(key);
+        if (row_id != INVALID_ID) {
+            results_index.push_back(read_guard.Rows()[row_id].tuple_);
+            EXPECT_EQ(results_index.back()[0], key);
+        }
+    }
+    std::sort(results_index.begin(), results_index.end());
+    EXPECT_EQ(results_index, insert_tuples);
+
+    test_db.Commit(*txn);
+}
+
 
 }

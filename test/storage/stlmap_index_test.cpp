@@ -12,7 +12,7 @@ TEST(StlmapIndexTest, BasicTest) {
     write_guard.Rows().push_back({Tuple{0, 1}, TupleMeta{false}});
     write_guard.Drop();
     }
-    StlmapIndex index("index", table, 0);
+    StlmapIndex index("index", table, "c0");
 
     index.InsertEntry(2, 1);
 

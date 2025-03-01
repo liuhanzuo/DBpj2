@@ -42,17 +42,21 @@ public:
     std::vector<idx_t> GetKeyAttrs(const Schema &key_schema) const {
         std::vector<idx_t> result;
         for (auto cname : key_schema) {
-            auto position = this->find(cname);
-            if (position == INVALID_ID) {
-                throw std::logic_error("Invalid key schema");
-            }
-            result.push_back(position);
+            result.push_back(GetKeyAttr(cname));
         }
         return result;
     }
 
+    idx_t GetKeyAttr(const std::string &column_name) const {
+        auto position = this->Find(column_name);
+        if (position == INVALID_ID) {
+            throw std::logic_error("Invalid key schema");
+        }
+        return position;
+    }
+
 private:
-    idx_t find(const std::string &cname) const {
+    idx_t Find(const std::string &cname) const {
         for (idx_t i = 0; i < cname.size(); i++) {
             if (this->operator[](i) == cname) {
                 return i;

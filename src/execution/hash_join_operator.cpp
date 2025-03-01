@@ -4,12 +4,12 @@
 
 namespace babydb {
 
-HashJoinOperator::HashJoinOperator(const ExecutionContext &execute_context,
+HashJoinOperator::HashJoinOperator(const ExecutionContext &exec_ctx,
                                    const std::shared_ptr<Operator> &probe_child_operator,
                                    const std::shared_ptr<Operator> &build_child_operator,
                                    const std::string &probe_column_name,
                                    const std::string &build_column_name)
-    : Operator(execute_context, {probe_child_operator, build_child_operator}),
+    : Operator(exec_ctx, {probe_child_operator, build_child_operator}),
       probe_column_name_(probe_column_name),
       build_column_name_(build_column_name) {}
 

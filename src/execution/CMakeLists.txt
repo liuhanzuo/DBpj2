@@ -2,6 +2,7 @@ add_library(
     babydb_execution
     OBJECT
     hash_join_operator.cpp
+    insert_operator.cpp
     value_operator.cpp)
 
 set(ALL_OBJECT_FILES

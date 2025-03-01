@@ -2,14 +2,15 @@
 
 namespace babydb {
 
-StlmapIndex::StlmapIndex(const std::string &name, Table &table, idx_t key_attr)
-    : RangeIndex(name, table, key_attr) {
+StlmapIndex::StlmapIndex(const std::string &name, Table &table, const std::string &key_name)
+    : RangeIndex(name, table, std::move(key_name)) {
     auto read_guard = table.GetReadTableGuard();
     auto &rows = read_guard.Rows();
+    auto key_attr = table.schema_.GetKeyAttr(key_name);
     for (idx_t row_id = 0; row_id < rows.size(); row_id++) {
         auto &row = rows[row_id];
         if (!row.tuple_meta_.is_deleted_) {
-            InsertEntry(row.tuple_.KeyFromTuple(key_attr_), row_id);
+            InsertEntry(row.tuple_.KeyFromTuple(key_attr), row_id);
         }
     }
 }

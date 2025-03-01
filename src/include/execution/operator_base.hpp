@@ -38,9 +38,7 @@ public:
 
     virtual OperatorState Next(Chunk &output_chunk) = 0;
 
-    virtual void SelfInit() {}
-
-    virtual void Init() {
+    void Init() {
         for (auto &child_operator : child_operators_) {
             child_operator->Init();
         }
@@ -50,6 +48,17 @@ public:
     const Schema& GetOutputSchema() {
         return output_schema_;
     }
+
+    void Check() {
+        for (auto &child_operator : child_operators_) {
+            child_operator->Check();
+        }
+        CheckSchema();
+        SelfCheck();
+    }
+
+protected:
+    virtual void SelfInit() = 0;
 
     virtual void SelfCheck() = 0;
 
@@ -61,14 +70,6 @@ public:
                 throw std::logic_error("Duplicated column name in operator's output");
             }
         }
-    }
-
-    void Check() {
-        for (auto &child_operator : child_operators_) {
-            child_operator->Check();
-        }
-        CheckSchema();
-        SelfCheck();
     }
 
 protected:
