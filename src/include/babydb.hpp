@@ -1,9 +1,11 @@
 #pragma once
 
+#include "common/config.hpp"
 #include "common/macro.hpp"
 #include "common/typedefs.hpp"
 #include "common/types.hpp"
 #include "concurrency/transaction.hpp"
+#include "execution/execution_context.hpp"
 
 #include <memory>
 #include <shared_mutex>
@@ -11,13 +13,14 @@
 namespace babydb {
 
 class Catalog;
+class ConfigGroup;
 class TransactionManager;
 class Transaction;
 
 //! Instance of BabyDB.
 class BabyDB {
 public:
-    explicit BabyDB();
+    explicit BabyDB(const ConfigGroup &config = ConfigGroup());
 
     ~BabyDB();
 
@@ -32,7 +35,7 @@ public:
 
     void DropIndex(const std::string &index_name);
 
-    std::unique_ptr<Transaction> CreateTxn();
+    std::shared_ptr<Transaction> CreateTxn();
 
     bool Commit(Transaction &txn);
 
@@ -42,10 +45,20 @@ public:
         return *catalog_;
     }
 
+    const ConfigGroup& GetConfig() {
+        return *config_;
+    }
+
+    ExecutionContext GetExecutionContext(const std::shared_ptr<Transaction> &txn) {
+        return ExecutionContext{*txn, GetCatalog(), GetConfig()};
+    }
+
 private:
     std::unique_ptr<Catalog> catalog_;
 
     std::unique_ptr<TransactionManager> txn_mgr_;
+
+    std::unique_ptr<ConfigGroup> config_;
 
     std::shared_mutex db_lock_;
 };

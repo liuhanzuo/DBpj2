@@ -3,8 +3,8 @@
 #include "common/typedefs.hpp"
 #include "transaction.hpp"
 
-#include <map>
 #include <memory>
+#include <unordered_map>
 
 namespace babydb {
 
@@ -13,7 +13,7 @@ const idx_t TXN_START_ID = 1ll << 62;
 class TransactionManager {
 public:
     //! Create a new transaction.
-    std::unique_ptr<Transaction> CreateTxn(std::unique_lock<std::shared_mutex> &&db_lock);
+    std::shared_ptr<Transaction> CreateTxn(std::unique_lock<std::shared_mutex> &&db_lock);
     //! Commit a transaction, return false if aborted.
     bool Commit(Transaction &txn);
     //! Abort a transaction.
@@ -27,7 +27,7 @@ private:
 
     std::atomic<idx_t> last_commit_ts_{0};
 
-    std::map<idx_t, std::reference_wrapper<Transaction>> txn_map_;
+    std::unordered_map<idx_t, std::shared_ptr<Transaction>> txn_map_;
 
     std::shared_mutex txn_map_latch_;
 

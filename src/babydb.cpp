@@ -9,8 +9,8 @@
 
 namespace babydb {
 
-BabyDB::BabyDB()
-    : catalog_(std::make_unique<Catalog>()), txn_mgr_(std::make_unique<TransactionManager>()) {}
+BabyDB::BabyDB(const ConfigGroup &config) : catalog_(std::make_unique<Catalog>()),
+    txn_mgr_(std::make_unique<TransactionManager>()), config_(std::make_unique<ConfigGroup>(config)) {}
 
 BabyDB::~BabyDB() {
     catalog_.reset();
@@ -52,7 +52,7 @@ void BabyDB::DropIndex(const std::string &index_name) {
     catalog_->DropIndex(index_name);
 }
 
-std::unique_ptr<Transaction> BabyDB::CreateTxn() {
+std::shared_ptr<Transaction> BabyDB::CreateTxn() {
     return txn_mgr_->CreateTxn(std::unique_lock(db_lock_));
 }
 

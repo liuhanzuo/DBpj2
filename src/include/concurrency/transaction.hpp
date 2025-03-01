@@ -20,7 +20,7 @@ public:
 
     DISALLOW_COPY(Transaction);
 
-    ~Transaction();
+    ~Transaction() = default;
 
     const idx_t txn_id_;
 

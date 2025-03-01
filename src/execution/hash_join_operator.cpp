@@ -4,12 +4,12 @@
 
 namespace babydb {
 
-HashJoinOperator::HashJoinOperator(const std::shared_ptr<Operator> &probe_child_operator,
+HashJoinOperator::HashJoinOperator(const ExecutionContext &execute_context,
+                                   const std::shared_ptr<Operator> &probe_child_operator,
                                    const std::shared_ptr<Operator> &build_child_operator,
                                    const std::string &probe_column_name,
-                                   const std::string &build_column_name,
-                                   const ExecutionContext &execute_context)
-    : Operator({probe_child_operator, build_child_operator}, execute_context),
+                                   const std::string &build_column_name)
+    : Operator(execute_context, {probe_child_operator, build_child_operator}),
       probe_column_name_(probe_column_name),
       build_column_name_(build_column_name) {}
 
@@ -22,8 +22,8 @@ static Tuple UnionTuple(const Tuple &a, const Tuple &b) {
 OperatorState HashJoinOperator::Next(Chunk &output_chunk) {
     output_chunk.clear();
     auto &probe_child_operator = child_operators_[0];
-    auto probe_key_attr = output_schema_.GetKeyAttrs({probe_column_name_})[0];
-    while (output_chunk.size() < CHUNK_SUGGEST_SIZE) {
+    auto probe_key_attr = probe_child_operator->GetOutputSchema().GetKeyAttrs({probe_column_name_})[0];
+    while (output_chunk.size() < exec_ctx_.config_.CHUNK_SUGGEST_SIZE) {
         if (buffer_ptr_ == buffer_.size() && !probe_child_exhausted_) {
             if (probe_child_operator->Next(buffer_) == EXHAUSETED) {
                 probe_child_exhausted_ = true;
@@ -53,10 +53,15 @@ void HashJoinOperator::SelfInit() {
     BuildHashTable();
 }
 
+void HashJoinOperator::SelfCheck() {
+    child_operators_[0]->GetOutputSchema().GetKeyAttrs({probe_column_name_});
+    child_operators_[1]->GetOutputSchema().GetKeyAttrs({build_column_name_});
+}
+
 void HashJoinOperator::BuildHashTable() {
     auto &build_child_operator = child_operators_[1];
     Chunk build_chunk;
-    const idx_t build_key_attr = output_schema_.GetKeyAttrs({build_column_name_})[0];
+    const idx_t build_key_attr = build_child_operator->GetOutputSchema().GetKeyAttrs({build_column_name_})[0];
     while (build_child_operator->Next(build_chunk) != EXHAUSETED) {
         for (auto &chunk_row : build_chunk) {
             auto &tuple = chunk_row.first;

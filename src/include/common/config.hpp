@@ -4,6 +4,8 @@
 
 namespace babydb {
 
-const idx_t CHUNK_SUGGEST_SIZE = 128;
+struct ConfigGroup {
+    idx_t CHUNK_SUGGEST_SIZE = 128;
+};
 
 }
