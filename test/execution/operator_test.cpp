@@ -3,6 +3,7 @@
 #include "babydb.hpp"
 #include "execution/hash_join_operator.hpp"
 #include "execution/filter_operator.hpp"
+#include "execution/projection_operator.hpp"
 #include "execution/value_operator.hpp"
 #include "storage/catalog.hpp"
 #include "storage/index.hpp"
@@ -11,6 +12,13 @@
 #include <algorithm>
 
 namespace babydb {
+
+template<class T>
+static std::vector<T> TransToVec(T &&a) {
+    std::vector<T> result;
+    result.push_back(std::move(a));
+    return result;
+}
 
 static ConfigGroup TestConfig() {
     ConfigGroup config;
@@ -101,11 +109,38 @@ TEST(OperatorTest, FilterTest) {
     auto range_filter_operator = FilterOperator(exec_ctx, value_operator, std::move(range_filter));
     EXPECT_EQ(RunOperator(range_filter_operator), (std::vector<Tuple>{Tuple{2, 3}, Tuple{4, 4}}));
 
-    auto udfilter = std::make_unique<UDFilter>(Schema{"c0", "c1"}, [](const Tuple &keys) {
+    auto udfilter = std::make_unique<UDFilter>(Schema{"c0", "c1"}, [](Tuple &&keys) {
         return keys[0] == keys[1];
     });
     auto udfilter_operator = FilterOperator(exec_ctx, value_operator, std::move(udfilter));
     EXPECT_EQ(RunOperator(udfilter_operator), (std::vector<Tuple>{Tuple{4, 4}}));
+}
+
+TEST(OperatorTest, ProjectionTest) {
+    BabyDB test_db(TestConfig());
+    auto txn = test_db.CreateTxn();
+    auto exec_ctx = test_db.GetExecutionContext(txn);
+
+    std::vector<Tuple> tuples;
+    tuples.push_back({0, 1});
+    tuples.push_back({2, 3});
+    tuples.push_back({4, 5});
+
+    auto value_operator = std::make_shared<ValueOperator>(exec_ctx, Schema{"c0", "c1"}, std::move(tuples));
+
+    auto add_one_projection = std::make_unique<UDProjection>("c1", [](std::vector<data_t> &&input) {
+        return input[0] + 1;
+    });
+    auto add_one_projection_operator = ProjectionOperator(exec_ctx, value_operator,
+        TransToVec<std::unique_ptr<Projection>>(std::move(add_one_projection)));
+    EXPECT_EQ(RunOperator(add_one_projection_operator), (std::vector<Tuple>{Tuple{0, 2}, Tuple{2, 4}, Tuple{4, 6}}));
+
+    auto sum_projection = std::make_unique<UDProjection>(Schema{"c0", "c1"}, "sum", [](std::vector<data_t> &&input) {
+        return input[0] + input[1];
+    });
+    auto sum_projection_operator = ProjectionOperator(exec_ctx, value_operator,
+        TransToVec<std::unique_ptr<Projection>>(std::move(sum_projection)), false);
+    EXPECT_EQ(RunOperator(sum_projection_operator), (std::vector<Tuple>{Tuple{1}, Tuple{5}, Tuple{9}}));
 }
 
 }
