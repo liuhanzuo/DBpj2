@@ -17,6 +17,11 @@ public:
                        std::vector<std::unique_ptr<Projection>> &&projections,
                        bool update_in_place = true);
 
+    ProjectionOperator(const ExecutionContext &exec_ctx,
+                       const std::shared_ptr<Operator> &probe_child_operator,
+                       std::unique_ptr<Projection> &&projections,
+                       bool update_in_place = true);
+
     ~ProjectionOperator() = default;
 
     OperatorState Next(Chunk &output_chunk) override;

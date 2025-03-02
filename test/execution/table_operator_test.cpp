@@ -2,7 +2,9 @@
 
 #include "babydb.hpp"
 #include "execution/insert_operator.hpp"
+#include "execution/filter_operator.hpp"
 #include "execution/seq_scan_operator.hpp"
+#include "execution/projection_operator.hpp"
 #include "execution/update_operator.hpp"
 #include "execution/value_operator.hpp"
 #include "storage/catalog.hpp"
@@ -95,6 +97,67 @@ TEST(TableOperatorTest, InsertAndSeqScanBasicTest) {
 
     auto seq_scan_operator = SeqScanOperator(exec_ctx, "table0", {"c0", "c1"});
     EXPECT_EQ(RunOperator(seq_scan_operator), insert_tuples);
+
+    test_db.Commit(*txn);
+}
+
+TEST(TableOperatorTest, UpdateScanBasicTest) {
+    BabyDB test_db(TestConfig());
+    Schema schema{"c0", "c1"};
+    test_db.CreateTable("table0", schema);
+    test_db.CreateIndex("index0_0", "table0", "c0", IndexType::Stlmap);
+    auto txn = test_db.CreateTxn();
+    auto exec_ctx = test_db.GetExecutionContext(txn);
+
+    std::vector<Tuple> insert_tuples;
+    insert_tuples.push_back({0, 1});
+    insert_tuples.push_back({2, 3});
+    insert_tuples.push_back({4, 5});
+
+    auto value_operator = std::make_shared<ValueOperator>(exec_ctx, Schema{"c0", "c1"}, std::move(insert_tuples));
+    auto insert_operator = InsertOperator(exec_ctx, value_operator, "table0");
+    EXPECT_EQ(RunOperator(insert_operator), std::vector<Tuple>{});
+
+    auto scan_operator = std::make_shared<SeqScanOperator>(exec_ctx, "table0");
+
+    auto add_c1_projection = std::make_unique<UDProjection>("table0.c1", [](std::vector<data_t> &&input) {
+        return input[0] + 1;
+    });
+    auto add_c1_projection_operator
+        = std::make_shared<ProjectionOperator>(exec_ctx, scan_operator, std::move(add_c1_projection));
+    auto add_c1_update_operator = UpdateOperator(exec_ctx, add_c1_projection_operator, "table0");
+
+    EXPECT_EQ(RunOperator(add_c1_update_operator), std::vector<Tuple>{});
+    EXPECT_EQ(RunOperator(*scan_operator), (std::vector<Tuple>{Tuple{0, 2}, Tuple{2, 4}, Tuple{4, 6}}));
+
+    auto equal_filter = std::make_unique<EqualFilter>("table0.c0", 2);
+    auto filter_operator = std::make_shared<FilterOperator>(exec_ctx, scan_operator, std::move(equal_filter));
+    auto add_c0_projection = std::make_unique<UDProjection>("table0.c0", [](std::vector<data_t> &&input) {
+        return input[0] * 3;
+    });
+    auto add_c0_projection_operator
+        = std::make_shared<ProjectionOperator>(exec_ctx, filter_operator, std::move(add_c0_projection));
+    auto add_c0_update_operator = UpdateOperator(exec_ctx, add_c0_projection_operator, "table0");
+
+    EXPECT_EQ(RunOperator(add_c0_update_operator), std::vector<Tuple>{});
+    EXPECT_EQ(RunOperator(*scan_operator), (std::vector<Tuple>{Tuple{0, 2}, Tuple{4, 6}, Tuple{6, 4}}));
+
+    std::vector<Tuple> results_index;
+    auto table = exec_ctx.catalog_.FetchTable("table0");
+    auto read_guard = table->GetReadTableGuard();
+    auto index = exec_ctx.catalog_.FetchIndex("index0_0");
+    for (data_t key = -1; key <= 6; key++) {
+        auto row_id = index->ScanKey(key);
+        if (row_id != INVALID_ID) {
+            auto &row = read_guard.Rows()[row_id];
+            if (!row.tuple_meta_.is_deleted_) {
+                results_index.push_back(row.tuple_);
+                EXPECT_EQ(results_index.back()[0], key);
+            }
+        }
+    }
+    std::sort(results_index.begin(), results_index.end());
+    EXPECT_EQ(results_index, (std::vector<Tuple>{Tuple{0, 2}, Tuple{4, 6}, Tuple{6, 4}}));
 
     test_db.Commit(*txn);
 }

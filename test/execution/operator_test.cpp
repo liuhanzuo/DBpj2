@@ -13,13 +13,6 @@
 
 namespace babydb {
 
-template<class T>
-static std::vector<T> TransToVec(T &&a) {
-    std::vector<T> result;
-    result.push_back(std::move(a));
-    return result;
-}
-
 static ConfigGroup TestConfig() {
     ConfigGroup config;
     config.CHUNK_SUGGEST_SIZE = 2;
@@ -131,15 +124,13 @@ TEST(OperatorTest, ProjectionTest) {
     auto add_one_projection = std::make_unique<UDProjection>("c1", [](std::vector<data_t> &&input) {
         return input[0] + 1;
     });
-    auto add_one_projection_operator = ProjectionOperator(exec_ctx, value_operator,
-        TransToVec<std::unique_ptr<Projection>>(std::move(add_one_projection)));
+    auto add_one_projection_operator = ProjectionOperator(exec_ctx, value_operator, std::move(add_one_projection));
     EXPECT_EQ(RunOperator(add_one_projection_operator), (std::vector<Tuple>{Tuple{0, 2}, Tuple{2, 4}, Tuple{4, 6}}));
 
     auto sum_projection = std::make_unique<UDProjection>(Schema{"c0", "c1"}, "sum", [](std::vector<data_t> &&input) {
         return input[0] + input[1];
     });
-    auto sum_projection_operator = ProjectionOperator(exec_ctx, value_operator,
-        TransToVec<std::unique_ptr<Projection>>(std::move(sum_projection)), false);
+    auto sum_projection_operator = ProjectionOperator(exec_ctx, value_operator, std::move(sum_projection), false);
     EXPECT_EQ(RunOperator(sum_projection_operator), (std::vector<Tuple>{Tuple{1}, Tuple{5}, Tuple{9}}));
 }
 
