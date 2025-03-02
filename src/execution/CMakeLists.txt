@@ -2,10 +2,12 @@ add_library(
     babydb_execution
     OBJECT
     expression/filter.cpp
+    execution_common.cpp
     hash_join_operator.cpp
     filter_operator.cpp
     seq_scan_operator.cpp
     insert_operator.cpp
+    update_operator.cpp
     value_operator.cpp)
 
 set(ALL_OBJECT_FILES

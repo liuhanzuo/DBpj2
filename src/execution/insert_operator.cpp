@@ -1,5 +1,6 @@
 #include "execution/insert_operator.hpp"
 
+#include "execution/execution_common.hpp"
 #include "storage/catalog.hpp"
 #include "storage/index.hpp"
 #include "storage/table.hpp"
@@ -51,24 +52,10 @@ OperatorState InsertOperator::Next(Chunk &) {
 
             if (index != nullptr) {
                 auto key = insert_tuple.KeyFromTuple(index_key_attr);
-                idx_t row_id = index->ScanKey(key);
-                // Key is existed, but deleted
-                if (row_id != INVALID_ID) {
-                    auto &[data, meta] = write_guard.Rows()[row_id];
-                    if (!meta.is_deleted_) {
-                        throw std::logic_error("InsertOperator: Duplicated key");
-                    }
-                    meta.is_deleted_ = false;
-                    data = insert_tuple;
-                    continue;
-                }
-
-                row_id = write_guard.Rows().size();
-                index->InsertEntry(key, row_id);
+                InsertRowWithIndex(write_guard, std::move(insert_tuple), index, key);
+            } else {
+                InsertRowWoIndex(write_guard, std::move(insert_tuple));
             }
-
-            TupleMeta tuple_meta;
-            write_guard.Rows().push_back({std::move(insert_tuple), tuple_meta});
         }
     }
     return EXHAUSETED;
