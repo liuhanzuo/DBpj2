@@ -6,6 +6,11 @@
 
 namespace babydb {
 
+/**
+ * Insert Operator
+ * By default, it will use table's schema to parse the input.
+ * You can also specify how to parse the input.
+ */
 class InsertOperator : public Operator {
 public:
     InsertOperator(const ExecutionContext &exec_ctx, const std::shared_ptr<Operator> &child_operator,

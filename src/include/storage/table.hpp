@@ -13,6 +13,8 @@ namespace babydb {
 
 struct TupleMeta {
     bool is_deleted_;
+
+    TupleMeta() : is_deleted_(false) {}
 };
 
 struct Row {

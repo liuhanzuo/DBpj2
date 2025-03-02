@@ -9,7 +9,7 @@ TEST(StlmapIndexTest, BasicTest) {
     Table table("table", schema);
     {
     auto write_guard = table.GetWriteTableGuard();
-    write_guard.Rows().push_back({Tuple{0, 1}, TupleMeta{false}});
+    write_guard.Rows().push_back({Tuple{0, 1}, TupleMeta()});
     write_guard.Drop();
     }
     StlmapIndex index("index", table, "c0");

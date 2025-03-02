@@ -12,8 +12,8 @@ TEST(TableTest, BasicTest) {
     Table table("table", schema);
 
     auto write_guard = table.GetWriteTableGuard();
-    write_guard.Rows().push_back(Row{Tuple{0, 1}, TupleMeta{false}});
-    write_guard.Rows().push_back(Row{Tuple{2, 3}, TupleMeta{false}});
+    write_guard.Rows().push_back(Row{Tuple{0, 1}, TupleMeta()});
+    write_guard.Rows().push_back(Row{Tuple{2, 3}, TupleMeta()});
     write_guard.Drop();
 
     auto read_guard_0 = table.GetReadTableGuard();
@@ -38,7 +38,7 @@ TEST(TableTest, ConcurrentTest) {
                 data_t val = static_cast<data_t>(element_id);
                 auto write_guard = table.GetWriteTableGuard();
                 auto before_length = write_guard.Rows().size();
-                write_guard.Rows().push_back(Row{Tuple{val, val * 2}, TupleMeta{false}});
+                write_guard.Rows().push_back(Row{Tuple{val, val * 2}, TupleMeta()});
                 write_guard.Drop();
 
                 auto read_guard = table.GetReadTableGuard();

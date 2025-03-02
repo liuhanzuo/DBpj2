@@ -3,6 +3,7 @@
 #include "babydb.hpp"
 #include "execution/hash_join_operator.hpp"
 #include "execution/insert_operator.hpp"
+#include "execution/seq_scan_operator.hpp"
 #include "execution/value_operator.hpp"
 #include "storage/catalog.hpp"
 #include "storage/index.hpp"
@@ -23,7 +24,9 @@ static std::vector<Tuple> RunOperator(Operator &test_operator, bool sort_output 
     test_operator.Init();
     std::vector<Tuple> results;
     Chunk chunk;
-    while (test_operator.Next(chunk) != EXHAUSETED) {
+    auto operator_state = OperatorState::HAVE_MORE_OUTPUT;
+    while (operator_state != EXHAUSETED) {
+        operator_state = test_operator.Next(chunk);
         for (auto &row : chunk) {
             results.push_back(row.first);
         }
@@ -79,7 +82,7 @@ TEST(OperatorTest, HashJoinBasicTest) {
     test_db.Commit(*txn);
 }
 
-TEST(OperatorTest, InsertBasicTest) {
+TEST(OperatorTest, InsertAndScanBasicTest) {
     BabyDB test_db(TestConfig());
     Schema schema{"c0", "c1"};
     test_db.CreateTable("table0", schema);
@@ -95,9 +98,9 @@ TEST(OperatorTest, InsertBasicTest) {
     std::vector<Tuple> insert_tuples_copy = insert_tuples;
 
     auto value_operator = std::make_shared<ValueOperator>(exec_ctx, Schema{"c0", "c1"}, std::move(insert_tuples_copy));
-    auto test_operator = InsertOperator(exec_ctx, value_operator, "table0");
+    auto insert_operator = InsertOperator(exec_ctx, value_operator, "table0");
 
-    EXPECT_EQ(RunOperator(test_operator), std::vector<Tuple>{});
+    EXPECT_EQ(RunOperator(insert_operator), std::vector<Tuple>{});
 
     std::vector<Tuple> results_table;
     auto table = exec_ctx.catalog_.FetchTable("table0");
@@ -119,6 +122,19 @@ TEST(OperatorTest, InsertBasicTest) {
     }
     std::sort(results_index.begin(), results_index.end());
     EXPECT_EQ(results_index, insert_tuples);
+
+    read_guard.Drop();
+
+    EXPECT_ANY_THROW(RunOperator(insert_operator));
+    auto write_guard = table->GetWriteTableGuard();
+    for (auto &row : write_guard.Rows()) {
+        row.tuple_meta_.is_deleted_ = true;
+    }
+    write_guard.Drop();
+    EXPECT_NO_THROW(RunOperator(insert_operator));
+
+    auto seq_scan_operator = SeqScanOperator(exec_ctx, "table0", {"c0", "c1"});
+    EXPECT_EQ(RunOperator(seq_scan_operator), insert_tuples);
 
     test_db.Commit(*txn);
 }

@@ -23,6 +23,11 @@ void InsertOperator::SelfCheck() {
     if (table == nullptr) {
         throw std::logic_error("InsertOperator: Table " + table_name_ + " does not exists");
     }
+
+    if (input_schema_.size() != table->schema_.size()) {
+        throw std::logic_error("InsertOperator: The schema of the table and the input do not match");
+    }
+
     child_schema.GetKeyAttrs(input_schema_);
 }
 
@@ -43,12 +48,26 @@ OperatorState InsertOperator::Next(Chunk &) {
         auto write_guard = table->GetWriteTableGuard();
         for (auto &insert_data : insert_chunk) {
             auto insert_tuple = insert_data.first.KeysFromTuple(key_attrs);
+
             if (index != nullptr) {
-                idx_t row_id = write_guard.Rows().size();
-                index->InsertEntry(insert_tuple.KeyFromTuple(index_key_attr), row_id);
+                auto key = insert_tuple.KeyFromTuple(index_key_attr);
+                idx_t row_id = index->ScanKey(key);
+                // Key is existed, but deleted
+                if (row_id != INVALID_ID) {
+                    auto &[data, meta] = write_guard.Rows()[row_id];
+                    if (!meta.is_deleted_) {
+                        throw std::logic_error("InsertOperator: Duplicated key");
+                    }
+                    meta.is_deleted_ = false;
+                    data = insert_tuple;
+                    continue;
+                }
+
+                row_id = write_guard.Rows().size();
+                index->InsertEntry(key, row_id);
             }
 
-            TupleMeta tuple_meta{false};
+            TupleMeta tuple_meta;
             write_guard.Rows().push_back({std::move(insert_tuple), tuple_meta});
         }
     }

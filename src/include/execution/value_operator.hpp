@@ -4,6 +4,10 @@
 
 namespace babydb {
 
+/**
+ * Value Operator
+ * It will output rows stored in the operator.
+ */
 class ValueOperator : public Operator {
 public:
     ValueOperator(const ExecutionContext &execute_context, const Schema &output_schema, std::vector<Tuple> &&tuples);

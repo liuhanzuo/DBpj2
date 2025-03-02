@@ -7,6 +7,11 @@
 
 namespace babydb {
 
+/**
+ * Hash Join Operator
+ * We only support equavilant join on one column.
+ * The output schema is just the union of the input's schema.
+ */
 class HashJoinOperator : public Operator {
 public:
     HashJoinOperator(const ExecutionContext &exec_ctx,
