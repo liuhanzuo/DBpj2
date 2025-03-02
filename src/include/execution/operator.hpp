@@ -57,6 +57,8 @@ public:
         SelfCheck();
     }
 
+    virtual std::string BindTableName() { return INVALID_NAME; }
+
 protected:
     virtual void SelfInit() = 0;
 

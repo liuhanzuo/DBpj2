@@ -32,7 +32,8 @@ void InsertOperator::SelfCheck() {
     child_schema.GetKeyAttrs(input_schema_);
 }
 
-OperatorState InsertOperator::Next(Chunk &) {
+OperatorState InsertOperator::Next(Chunk &output_chunk) {
+    output_chunk.clear();
     auto table = exec_ctx_.catalog_.FetchTable(table_name_);
     auto key_attrs = child_operators_[0]->GetOutputSchema().GetKeyAttrs(input_schema_);
     Index *index = nullptr;

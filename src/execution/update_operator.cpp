@@ -1,5 +1,6 @@
 #include "execution/update_operator.hpp"
 
+#include "common/macro.hpp"
 #include "execution/execution_common.hpp"
 #include "storage/catalog.hpp"
 #include "storage/index.hpp"
@@ -7,13 +8,14 @@
 
 namespace babydb {
 
-UpdateOperator::UpdateOperator(const ExecutionContext &exec_ctx, const std::shared_ptr<Operator> &child_operator,
-                               const std::string &table_name)
-    : Operator(exec_ctx, {child_operator}, Schema{}), table_name_(table_name), input_schema_(std::nullopt) {}
+UpdateOperator::UpdateOperator(const ExecutionContext &exec_ctx, const std::shared_ptr<Operator> &child_operator)
+    : Operator(exec_ctx, {child_operator}, Schema{}), table_name_(child_operator->BindTableName()),
+      input_schema_(std::nullopt) {}
 
 UpdateOperator::UpdateOperator(const ExecutionContext &exec_ctx, const std::shared_ptr<Operator> &child_operator,
-                               const std::string &table_name, const Schema &input_schema)
-    : Operator(exec_ctx, {child_operator}, Schema{}), table_name_(table_name), input_schema_(input_schema) {}
+                               const Schema &input_schema)
+    : Operator(exec_ctx, {child_operator}, Schema{}), table_name_(child_operator->BindTableName()),
+      input_schema_(input_schema) {}
 
 void UpdateOperator::SelfCheck() {
     auto &child_schema = child_operators_[0]->GetOutputSchema();
@@ -54,14 +56,14 @@ OperatorState UpdateOperator::Next(Chunk &) {
         child_state = child_operators_[0]->Next(update_chunk);
         auto write_guard = table->GetWriteTableGuard();
         for (auto &[update_tuple, row_id] : update_chunk) {
+            B_ASSERT(row_id != INVALID_ID);
+
             if (input_schema_.has_value()) {
                 update_tuple = update_tuple.KeysFromTuple(key_attrs);
             }
 
             auto &[target_tuple, target_meta] = write_guard.Rows()[row_id];
-            if (target_meta.is_deleted_) {
-                throw std::logic_error("Why the tuple has been deleted?");
-            }
+            B_ASSERT(!target_meta.is_deleted_);
 
             bool update_inplace = true;
             if (index != nullptr) {

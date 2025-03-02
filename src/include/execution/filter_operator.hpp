@@ -23,6 +23,8 @@ public:
 
     OperatorState Next(Chunk &output_chunk) override;
 
+    virtual std::string BindTableName() { return child_operators_[0]->BindTableName(); }
+
 private:
     void SelfInit() override;
 

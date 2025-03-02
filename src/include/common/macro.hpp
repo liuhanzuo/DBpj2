@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cassert>
+
+#define B_ASSERT(...) assert(__VA_ARGS__)
+
 // Macros to disable copying and moving
 #define DISALLOW_COPY(cname)                        \
   cname(const cname &) = delete;                    \

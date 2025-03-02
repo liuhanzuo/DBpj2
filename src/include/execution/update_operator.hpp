@@ -15,11 +15,10 @@ namespace babydb {
  */
 class UpdateOperator : public Operator {
 public:
-    UpdateOperator(const ExecutionContext &exec_ctx, const std::shared_ptr<Operator> &child_operator,
-                   const std::string &table_name);
+    UpdateOperator(const ExecutionContext &exec_ctx, const std::shared_ptr<Operator> &child_operator);
 
     UpdateOperator(const ExecutionContext &exec_ctx, const std::shared_ptr<Operator> &child_operator,
-                   const std::string &table_name, const Schema &input_schema);
+                   const Schema &input_schema);
 
     ~UpdateOperator() override = default;
 

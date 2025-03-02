@@ -3,6 +3,7 @@ add_library(
     OBJECT
     expression/filter.cpp
     expression/projection.cpp
+    delete_operator.cpp
     execution_common.cpp
     hash_join_operator.cpp
     filter_operator.cpp
