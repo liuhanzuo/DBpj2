@@ -13,9 +13,11 @@ class FilterOperator : public Operator {
 public:
     FilterOperator(const ExecutionContext &exec_ctx,
                    const std::shared_ptr<Operator> &probe_child_operator,
-                   std::unique_ptr<Filter> &&filter)
-        : Operator(exec_ctx, {probe_child_operator}, probe_child_operator->GetOutputSchema()),
-          filter_(std::move(filter)) {}
+                   std::unique_ptr<Filter> &&filter);
+
+    FilterOperator(const ExecutionContext &exec_ctx,
+                   const std::shared_ptr<Operator> &probe_child_operator,
+                   std::vector<std::unique_ptr<Filter>> &&filters);
 
     ~FilterOperator() = default;
 
@@ -27,7 +29,7 @@ private:
     void SelfCheck() override;
 
 private:
-    std::unique_ptr<Filter> filter_;
+    std::vector<std::unique_ptr<Filter>> filters_;
 };
 
 }
