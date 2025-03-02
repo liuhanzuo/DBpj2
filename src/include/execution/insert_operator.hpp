@@ -1,6 +1,6 @@
 #pragma once
 
-#include "execution/operator_base.hpp"
+#include "execution/operator.hpp"
 
 #include <string>
 

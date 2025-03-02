@@ -2,6 +2,7 @@
 
 #include "babydb.hpp"
 #include "execution/hash_join_operator.hpp"
+#include "execution/filter_operator.hpp"
 #include "execution/insert_operator.hpp"
 #include "execution/seq_scan_operator.hpp"
 #include "execution/value_operator.hpp"
@@ -137,6 +138,33 @@ TEST(OperatorTest, InsertAndScanBasicTest) {
     EXPECT_EQ(RunOperator(seq_scan_operator), insert_tuples);
 
     test_db.Commit(*txn);
+}
+
+TEST(OperatorTest, FilterTest) {
+    BabyDB test_db(TestConfig());
+    auto txn = test_db.CreateTxn();
+    auto exec_ctx = test_db.GetExecutionContext(txn);
+
+    std::vector<Tuple> tuples;
+    tuples.push_back({0, 1});
+    tuples.push_back({2, 3});
+    tuples.push_back({4, 4});
+
+    auto value_operator = std::make_shared<ValueOperator>(exec_ctx, Schema{"c0", "c1"}, std::move(tuples));
+
+    auto equal_filter = std::make_unique<EqualFilter>("c0", 0);
+    auto equal_filter_operator = FilterOperator(exec_ctx, value_operator, std::move(equal_filter));
+    EXPECT_EQ(RunOperator(equal_filter_operator), (std::vector<Tuple>{Tuple{0, 1}}));
+
+    auto range_filter = std::make_unique<RangeFilter>("c0", RangeInfo{1, 4});
+    auto range_filter_operator = FilterOperator(exec_ctx, value_operator, std::move(range_filter));
+    EXPECT_EQ(RunOperator(range_filter_operator), (std::vector<Tuple>{Tuple{2, 3}, Tuple{4, 4}}));
+
+    auto udfilter = std::make_unique<UDFilter>(Schema{"c0", "c1"}, [](const Tuple &keys) {
+        return keys[0] == keys[1];
+    });
+    auto udfilter_operator = FilterOperator(exec_ctx, value_operator, std::move(udfilter));
+    EXPECT_EQ(RunOperator(udfilter_operator), (std::vector<Tuple>{Tuple{4, 4}}));
 }
 
 }

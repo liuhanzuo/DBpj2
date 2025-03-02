@@ -3,6 +3,7 @@ add_library(
     OBJECT
     expression/filter.cpp
     hash_join_operator.cpp
+    filter_operator.cpp
     seq_scan_operator.cpp
     insert_operator.cpp
     value_operator.cpp)

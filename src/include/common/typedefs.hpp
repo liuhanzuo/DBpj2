@@ -11,11 +11,20 @@ namespace babydb {
 
 //! babydb's only data type
 typedef int64_t data_t;
+const data_t DATA_MIN = INT64_MIN;
+const data_t DATA_MAX = INT64_MAX;
 //! babydb's index type
 typedef uint64_t idx_t;
 
 const std::string INVALID_NAME = "";
 const idx_t INVALID_ID = static_cast<idx_t>(-1);
+
+struct RangeInfo {
+    data_t start;
+    data_t end;
+    bool contain_start = true;
+    bool contain_end = true;
+};
 
 class Tuple : public std::vector<data_t> {
 public:
