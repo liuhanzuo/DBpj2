@@ -123,5 +123,4 @@ TEST(OperatorTest, InsertBasicTest) {
     test_db.Commit(*txn);
 }
 
-
 }

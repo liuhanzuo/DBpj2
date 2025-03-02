@@ -21,8 +21,8 @@ class Tuple : public std::vector<data_t> {
 public:
     using std::vector<data_t>::vector;
 
-    std::vector<data_t> KeysFromTuple(const std::vector<idx_t> &key_attrs) const {
-        std::vector<data_t> result;
+    Tuple KeysFromTuple(const std::vector<idx_t> &key_attrs) const {
+        Tuple result;
         for (auto position : key_attrs) {
             result.push_back(this->operator[](position));
         }
