@@ -39,12 +39,7 @@ OperatorState FilterOperator::Next(Chunk &output_chunk) {
 }
 
 void FilterOperator::SelfCheck() {
-    for (auto &filter : filters_) {
-        if (filter == nullptr) {
-            throw std::logic_error("FilterOperator: Filter is nullptr");
-        }
-        filter->Init(output_schema_);
-    }
+    SelfInit();
 }
 
 void FilterOperator::SelfInit() {

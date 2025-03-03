@@ -17,7 +17,7 @@ public:
 public:
     Filter(const Schema &keys_schema) : keys_schema_(keys_schema) {}
     //! return false if the tuple does not satisfy some condition.
-    bool Check(const Tuple &tuple) {
+    bool Check(const Tuple &tuple) const {
         return CheckInternal(tuple.KeysFromTuple(key_attrs_));
     }
 
@@ -26,7 +26,7 @@ public:
     }
 
 private:
-    virtual bool CheckInternal(Tuple &&check_keys) = 0;
+    virtual bool CheckInternal(Tuple &&check_keys) const = 0;
 
 private:
     std::vector<idx_t> key_attrs_;
@@ -45,7 +45,7 @@ public:
         : Filter({column_name}), range_(range) {}
 
 private:
-    bool CheckInternal(Tuple &&tuple) override {
+    bool CheckInternal(Tuple &&tuple) const override {
         if (tuple[0] < range_.start || tuple[0] > range_.end) {
             return false;
         }
@@ -71,7 +71,7 @@ public:
     EqualFilter(const std::string &column_name, const data_t &target_key)
         : Filter({column_name}), target_key_(target_key) {}
 
-    bool CheckInternal(Tuple &&tuple) override {
+    bool CheckInternal(Tuple &&tuple) const override {
         return tuple[0] == target_key_;
     }
 };
@@ -87,7 +87,7 @@ public:
     UDFilter(const Schema &keys_schema, const std::function<bool(Tuple&&)> &udf)
         : Filter(keys_schema), udf_(udf) {}
 
-    bool CheckInternal(Tuple &&tuple) override {
+    bool CheckInternal(Tuple &&tuple) const override {
         return udf_(std::move(tuple));
     }
 };

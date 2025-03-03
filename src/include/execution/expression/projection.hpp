@@ -20,7 +20,7 @@ public:
     Projection(const Schema &keys_schema, const std::string &output_name)
         : keys_schema_(keys_schema), output_name_(output_name) {}
     //! returns the calculated data
-    data_t Calc(const Tuple &tuple) {
+    data_t Calc(const Tuple &tuple) const {
         return CalcInternal(tuple.KeysFromTuple(key_attrs_));
     }
 
@@ -29,7 +29,7 @@ public:
     }
 
 private:
-    virtual data_t CalcInternal(Tuple &&check_keys) = 0;
+    virtual data_t CalcInternal(Tuple &&check_keys) const = 0;
 
 private:
     std::vector<idx_t> key_attrs_;
@@ -47,7 +47,7 @@ public:
         : Projection({column_name}, output_name) {}
 
 private:
-    data_t CalcInternal(Tuple &&check_keys) override {
+    data_t CalcInternal(Tuple &&check_keys) const override {
         return check_keys[0];
     }
 };
@@ -68,7 +68,7 @@ public:
         : Projection({column_name}, column_name), udf_(udf) {}
 
 private:
-    data_t CalcInternal(Tuple &&check_keys) override {
+    data_t CalcInternal(Tuple &&check_keys) const override {
         return udf_(std::move(check_keys));
     }
 };

@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include "babydb.hpp"
+#include "execution/aggregate_operator.hpp"
 #include "execution/hash_join_operator.hpp"
 #include "execution/filter_operator.hpp"
 #include "execution/projection_operator.hpp"
@@ -132,6 +133,30 @@ TEST(OperatorTest, ProjectionTest) {
     });
     auto sum_projection_operator = ProjectionOperator(exec_ctx, value_operator, std::move(sum_projection), false);
     EXPECT_EQ(RunOperator(sum_projection_operator), (std::vector<Tuple>{Tuple{1}, Tuple{5}, Tuple{9}}));
+}
+
+TEST(OperatorTest, AggregateBasicTest) {
+    BabyDB test_db(TestConfig());
+    auto txn = test_db.CreateTxn();
+    auto exec_ctx = test_db.GetExecutionContext(txn);
+
+    std::vector<Tuple> test_tuples;
+    test_tuples.push_back({0, 1});
+    test_tuples.push_back({2, 3});
+    test_tuples.push_back({2, 4});
+    test_tuples.push_back({4, 5});
+    test_tuples.push_back({4, 5});
+
+    std::vector<Tuple> answers;
+    answers.push_back({0, 1});
+    answers.push_back({2, 7});
+    answers.push_back({4, 10});
+
+    auto value_operator = std::make_shared<ValueOperator>(exec_ctx, Schema{"c0", "c1"}, std::move(test_tuples));
+    auto test_operator = AggregateOperator(exec_ctx, value_operator, "c0", "c1");
+
+    EXPECT_EQ(RunOperator(test_operator), answers);
+    test_db.Commit(*txn);
 }
 
 }
