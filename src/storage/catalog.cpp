@@ -50,20 +50,20 @@ void Catalog::DropIndex(const std::string &index_name) {
     indexes_.erase(position);
 }
 
-Table* Catalog::FetchTable(const std::string &table_name) const {
+Table& Catalog::FetchTable(const std::string &table_name) const {
     auto position = tables_.find(table_name);
     if (position == tables_.end()) {
-        return nullptr;
+        throw std::logic_error("Fetch table: table does not exist");
     }
-    return position->second.get();
+    return *position->second;
 }
 
-Index* Catalog::FetchIndex(const std::string &index_name) const {
+Index& Catalog::FetchIndex(const std::string &index_name) const {
     auto position = indexes_.find(index_name);
     if (position == indexes_.end()) {
-        return nullptr;
+        throw std::logic_error("Fetch table: index does not exist");
     }
-    return position->second.get();
+    return *position->second;
 }
 
 }

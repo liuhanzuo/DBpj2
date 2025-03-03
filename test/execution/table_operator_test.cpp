@@ -6,6 +6,7 @@
 #include "execution/filter_operator.hpp"
 #include "execution/seq_scan_operator.hpp"
 #include "execution/projection_operator.hpp"
+#include "execution/range_index_scan_operator.hpp"
 #include "execution/update_operator.hpp"
 #include "execution/value_operator.hpp"
 #include "storage/catalog.hpp"
@@ -40,7 +41,7 @@ static std::vector<Tuple> RunOperator(Operator &test_operator, bool sort_output 
     return results;
 }
 
-TEST(TableOperatorTest, InsertAndSeqScanBasicTest) {
+TEST(TableOperatorTest, InsertAndScanBasicTest) {
     BabyDB test_db(TestConfig());
     Schema schema{"c0", "c1"};
     test_db.CreateTable("table0", schema);
@@ -61,8 +62,8 @@ TEST(TableOperatorTest, InsertAndSeqScanBasicTest) {
     EXPECT_EQ(RunOperator(insert_operator), std::vector<Tuple>{});
 
     std::vector<Tuple> results_table;
-    auto table = exec_ctx.catalog_.FetchTable("table0");
-    auto read_guard = table->GetReadTableGuard();
+    auto &table = exec_ctx.catalog_.FetchTable("table0");
+    auto read_guard = table.GetReadTableGuard();
     for (auto &row : read_guard.Rows()) {
         if (!row.tuple_meta_.is_deleted_) {
             results_table.push_back(row.tuple_);
@@ -72,9 +73,9 @@ TEST(TableOperatorTest, InsertAndSeqScanBasicTest) {
     EXPECT_EQ(results_table, insert_tuples);
 
     std::vector<Tuple> results_index;
-    auto index = exec_ctx.catalog_.FetchIndex("index0_0");
+    auto &index = exec_ctx.catalog_.FetchIndex("index0_0");
     for (data_t key = -1; key <= 5; key++) {
-        auto row_id = index->ScanKey(key);
+        auto row_id = index.ScanKey(key);
         if (row_id != INVALID_ID) {
             auto &row = read_guard.Rows()[row_id];
             if (!row.tuple_meta_.is_deleted_) {
@@ -87,17 +88,25 @@ TEST(TableOperatorTest, InsertAndSeqScanBasicTest) {
     EXPECT_EQ(results_index, insert_tuples);
 
     read_guard.Drop();
-
     EXPECT_ANY_THROW(RunOperator(insert_operator));
-    auto write_guard = table->GetWriteTableGuard();
+
+    auto seq_scan_operator = SeqScanOperator(exec_ctx, "table0", {"c0", "c1"});
+    EXPECT_EQ(RunOperator(seq_scan_operator), insert_tuples);
+
+    auto range_index_scan_operator
+        = RangeIndexScanOperator(exec_ctx, "table0", {"c0", "c1"}, {"c0", "c1"}, "index0_0", RangeInfo{1, 4});
+    EXPECT_EQ(RunOperator(range_index_scan_operator), (std::vector<Tuple>{Tuple{2, 3}, Tuple{4, 5}}));
+
+    auto write_guard = table.GetWriteTableGuard();
     for (auto &row : write_guard.Rows()) {
         row.tuple_meta_.is_deleted_ = true;
     }
     write_guard.Drop();
-    EXPECT_NO_THROW(RunOperator(insert_operator));
 
-    auto seq_scan_operator = SeqScanOperator(exec_ctx, "table0", {"c0", "c1"});
-    EXPECT_EQ(RunOperator(seq_scan_operator), insert_tuples);
+    EXPECT_EQ(RunOperator(seq_scan_operator), std::vector<Tuple>{});
+    EXPECT_EQ(RunOperator(range_index_scan_operator), std::vector<Tuple>{});
+
+    EXPECT_NO_THROW(RunOperator(insert_operator));
 
     test_db.Commit(*txn);
 }
@@ -174,11 +183,11 @@ TEST(TableOperatorTest, UpdateScanBasicTest) {
     EXPECT_EQ(RunOperator(*scan_operator), (std::vector<Tuple>{Tuple{0, 2}, Tuple{4, 6}, Tuple{6, 4}}));
 
     std::vector<Tuple> results_index;
-    auto table = exec_ctx.catalog_.FetchTable("table0");
-    auto read_guard = table->GetReadTableGuard();
-    auto index = exec_ctx.catalog_.FetchIndex("index0_0");
+    auto &table = exec_ctx.catalog_.FetchTable("table0");
+    auto read_guard = table.GetReadTableGuard();
+    auto &index = exec_ctx.catalog_.FetchIndex("index0_0");
     for (data_t key = -1; key <= 6; key++) {
-        auto row_id = index->ScanKey(key);
+        auto row_id = index.ScanKey(key);
         if (row_id != INVALID_ID) {
             auto &row = read_guard.Rows()[row_id];
             if (!row.tuple_meta_.is_deleted_) {

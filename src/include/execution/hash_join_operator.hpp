@@ -43,6 +43,8 @@ private:
     idx_t buffer_ptr_;
 
     bool probe_child_exhausted_;
+
+    bool hash_table_build_;
 };
 
 }

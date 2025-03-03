@@ -29,9 +29,9 @@ public:
 
     void DropIndex(const std::string &index_name);
 
-    Table* FetchTable(const std::string &table_name) const;
+    Table& FetchTable(const std::string &table_name) const;
 
-    Index* FetchIndex(const std::string &index_name) const;
+    Index& FetchIndex(const std::string &index_name) const;
 
 private:
     std::map<std::string, std::unique_ptr<Table>> tables_;

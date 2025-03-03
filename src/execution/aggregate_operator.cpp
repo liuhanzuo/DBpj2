@@ -17,6 +17,7 @@ AggregateOperator::AggregateOperator(const ExecutionContext &exec_ctx, const std
 OperatorState AggregateOperator::Next(Chunk &output_chunk) {
     output_chunk.clear();
     if (!hash_table_build_) {
+        hash_table_build_ = true;
         BuildHashTable();
         output_ptr_ = hash_table_.begin();
     }
@@ -43,8 +44,6 @@ void AggregateOperator::SelfCheck() {
 }
 
 void AggregateOperator::BuildHashTable() {
-    hash_table_build_ = true;
-
     Chunk input_chunk;
     auto child_state = OperatorState::HAVE_MORE_OUTPUT;
 

@@ -21,6 +21,12 @@ static Tuple UnionTuple(const Tuple &a, const Tuple &b) {
 
 OperatorState HashJoinOperator::Next(Chunk &output_chunk) {
     output_chunk.clear();
+
+    if (!hash_table_build_) {
+        hash_table_build_ = true;
+        BuildHashTable();
+    }
+
     auto &probe_child_operator = child_operators_[0];
     auto probe_key_attr = probe_child_operator->GetOutputSchema().GetKeyAttrs({probe_column_name_})[0];
     while (output_chunk.size() < exec_ctx_.config_.CHUNK_SUGGEST_SIZE) {
@@ -49,8 +55,7 @@ void HashJoinOperator::SelfInit() {
     buffer_.clear();
     buffer_ptr_ = 0;
     probe_child_exhausted_ = false;
-
-    BuildHashTable();
+    hash_table_build_ = false;
 }
 
 void HashJoinOperator::SelfCheck() {

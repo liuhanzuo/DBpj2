@@ -6,11 +6,8 @@
 namespace babydb {
 
 static const Schema& FetchTableSchema(const ExecutionContext &exec_ctx, const std::string &table_name) {
-    auto table = exec_ctx.catalog_.FetchTable(table_name);
-    if (table == nullptr) {
-        throw std::logic_error("SeqScanOperator: Construction: Table " + table_name + " does not exists");
-    }
-    return table->schema_;
+    auto &table = exec_ctx.catalog_.FetchTable(table_name);
+    return table.schema_;
 }
 
 static Schema CombineSchema(const std::string &table_name, const Schema &schema) {
@@ -39,10 +36,10 @@ SeqScanOperator::SeqScanOperator(const ExecutionContext &exec_ctx, const std::st
 OperatorState SeqScanOperator::Next(Chunk &output_chunk) {
     output_chunk.clear();
 
-    auto table = exec_ctx_.catalog_.FetchTable(table_name_);
-    auto key_attrs = table->schema_.GetKeyAttrs(fetch_columns_);
+    auto &table = exec_ctx_.catalog_.FetchTable(table_name_);
+    auto key_attrs = table.schema_.GetKeyAttrs(fetch_columns_);
 
-    auto read_guard = table->GetReadTableGuard();
+    auto read_guard = table.GetReadTableGuard();
 
     while (output_chunk.size() < exec_ctx_.config_.CHUNK_SUGGEST_SIZE) {
         if (next_row_id >= read_guard.Rows().size()) {

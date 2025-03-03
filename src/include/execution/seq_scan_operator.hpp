@@ -2,8 +2,6 @@
 
 #include "execution/operator.hpp"
 
-#include <string>
-
 namespace babydb {
 
 /**
