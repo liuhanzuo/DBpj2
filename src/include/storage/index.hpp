@@ -26,11 +26,11 @@ public:
 
     DISALLOW_COPY_AND_MOVE(Index);
 
-    virtual void InsertEntry(const data_t &key, idx_t row_id) = 0;
+    virtual void InsertEntry(const data_t &key, idx_t row_id,idx_t start_ts=0) = 0;
 
-    virtual void EraseEntry(const data_t &key, idx_t row_id) = 0;
+    virtual void EraseEntry(const data_t &key, idx_t row_id,idx_t start_ts=0,idx_t end_ts=0) = 0;
 
-    virtual idx_t ScanKey(const data_t &key) = 0;
+    virtual idx_t ScanKey(const data_t &key,idx_t start_ts=0,idx_t end_ts=0) = 0;
 
 friend class Catalog;
 };
@@ -39,7 +39,7 @@ class RangeIndex : public Index {
 public:
     using Index::Index;
 
-    virtual void ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids) = 0;
+    virtual void ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids,idx_t start_ts=0,idx_t end_ts=0) = 0;
 };
 
 }
