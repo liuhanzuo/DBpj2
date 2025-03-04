@@ -47,44 +47,27 @@ OperatorState UpdateOperator::Next(Chunk &) {
         index_key_attr = table.schema_.GetKeyAttr(index->key_name_);
     }
 
-    Chunk key_change_chunk;
     Chunk update_chunk;
+
+    Chunk fetch_chunk;
     auto child_state = OperatorState::HAVE_MORE_OUTPUT;
     while (child_state != EXHAUSETED) {
-        child_state = child_operators_[0]->Next(update_chunk);
-        auto write_guard = table.GetWriteTableGuard();
-        for (auto &[update_tuple, row_id] : update_chunk) {
-            B_ASSERT(row_id != INVALID_ID);
-
-            if (input_schema_.has_value()) {
-                update_tuple = update_tuple.KeysFromTuple(key_attrs);
-            }
-
-            auto &[target_tuple, target_meta] = write_guard.Rows()[row_id];
-            B_ASSERT(!target_meta.is_deleted_);
-
-            if (index != nullptr) {
-                auto new_key = update_tuple.KeyFromTuple(index_key_attr);
-                auto old_key = target_tuple.KeyFromTuple(index_key_attr);
-                if (new_key != old_key) {
-                    // Should first delete, then insert
-                    key_change_chunk.emplace_back(std::move(update_tuple), row_id);
-                    continue;
-                }
-            }
-
-            // Just update inplace
-            target_tuple = std::move(update_tuple);
-        }
+        child_state = child_operators_[0]->Next(fetch_chunk);
+        update_chunk.insert(update_chunk.end(), fetch_chunk.begin(), fetch_chunk.end());
     }
 
+    // First delete, then insert
     auto write_guard = table.GetWriteTableGuard();
-    for (auto &data : key_change_chunk) {
+    for (auto &data : update_chunk) {
         DeleteRow(write_guard, data.second);
     }
-    for (auto &data : key_change_chunk) {
-        auto key = data.first.KeyFromTuple(index_key_attr);
-        InsertRowWithIndex(write_guard, std::move(data.first), index, key);
+    for (auto &data : update_chunk) {
+        if (index != nullptr) {
+            auto key = data.first.KeyFromTuple(index_key_attr);
+            InsertRowWithIndex(write_guard, std::move(data.first), index, key);
+        } else {
+            InsertRowWoIndex(write_guard, std::move(data.first));
+        }
     }
 
     return EXHAUSETED;
