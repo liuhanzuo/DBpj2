@@ -47,6 +47,7 @@ OperatorState UpdateOperator::Next(Chunk &) {
         index_key_attr = table.schema_.GetKeyAttr(index->key_name_);
     }
 
+    Chunk key_change_chunk;
     Chunk update_chunk;
     auto child_state = OperatorState::HAVE_MORE_OUTPUT;
     while (child_state != EXHAUSETED) {
@@ -62,23 +63,30 @@ OperatorState UpdateOperator::Next(Chunk &) {
             auto &[target_tuple, target_meta] = write_guard.Rows()[row_id];
             B_ASSERT(!target_meta.is_deleted_);
 
-            bool update_inplace = true;
             if (index != nullptr) {
                 auto new_key = update_tuple.KeyFromTuple(index_key_attr);
                 auto old_key = target_tuple.KeyFromTuple(index_key_attr);
                 if (new_key != old_key) {
-                    update_inplace = false;
-                    // Delete and Insert
-                    DeleteRow(write_guard, row_id);
-                    InsertRowWithIndex(write_guard, std::move(update_tuple), index, new_key);
+                    // Should first delete, then insert
+                    key_change_chunk.emplace_back(std::move(update_tuple), row_id);
+                    continue;
                 }
             }
 
-            if (update_inplace) {
-                target_tuple = std::move(update_tuple);
-            }
+            // Just update inplace
+            target_tuple = std::move(update_tuple);
         }
     }
+
+    auto write_guard = table.GetWriteTableGuard();
+    for (auto &data : key_change_chunk) {
+        DeleteRow(write_guard, data.second);
+    }
+    for (auto &data : key_change_chunk) {
+        auto key = data.first.KeyFromTuple(index_key_attr);
+        InsertRowWithIndex(write_guard, std::move(data.first), index, key);
+    }
+
     return EXHAUSETED;
 }
 
