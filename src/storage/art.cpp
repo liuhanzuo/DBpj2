@@ -44,14 +44,14 @@ public:
     // Equals to TreePointer(nullptr)
     TreePointer() : ptr_or_data_(0) {}
     TreePointer(ArtNode* ptr) : ptr_or_data_(reinterpret_cast<uint64_t>(ptr)) {}
-    TreePointer(idx_t data) : ptr_or_data_((static_cast<uint64_t>(data) << 1) | 1) {}
+    TreePointer(data_t data) : ptr_or_data_((static_cast<uint64_t>(data) << 1) | 1) {}
 
 public:
     bool IsLeaf() {
         return ptr_or_data_ % 2 == 1;
     }
-    idx_t AsData() {
-        return static_cast<idx_t>(ptr_or_data_ >> 1);
+    data_t AsData() {
+        return static_cast<data_t>(ptr_or_data_ >> 1);
     }
     ArtNode* AsPtr() {
         return reinterpret_cast<ArtNode*>(ptr_or_data_);
@@ -66,6 +66,8 @@ public:
 private:
     uint64_t ptr_or_data_;
 };
+
+static_assert(sizeof(TreePointer) == sizeof(idx_t));
 
 struct Node4 : ArtNode {
     uint8_t key[4];
@@ -104,11 +106,11 @@ uint8_t flipSign(uint8_t keyByte) {
     return keyByte ^ 128;
 }
 
-static void loadKey(idx_t tid, key_t key) {
+static void loadKey(data_t data, key_t key) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    reinterpret_cast<uint64_t*>(key)[0] = __builtin_bswap64(tid);
+    reinterpret_cast<uint64_t*>(key)[0] = __builtin_bswap64(data);
 #else
-    reinterpret_cast<uint64_t*>(key)[0] = tid;
+    reinterpret_cast<uint64_t*>(key)[0] = data;
 #endif
 }
 
@@ -242,7 +244,7 @@ TreePointer maximum(TreePointer node) {
     return nullptr;
 }
 
-bool leafMatches(idx_t leaf, key_t key, uint32_t depth) {
+bool leafMatches(data_t leaf, key_t key, uint32_t depth) {
     if (depth != ART_KEY_LENGTH) {
         key_t leafKey;
         loadKey(leaf, leafKey);
@@ -318,13 +320,13 @@ TreePointer lookup(TreePointer node, key_t key, uint32_t depth) {
 }
 
 
-void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, idx_t value);
+void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, data_t value);
 void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
 void insertNode16(Node16* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
 void insertNode48(Node48* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
 void insertNode256(Node256* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
 
-void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, idx_t value) {
+void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, data_t value) {
     if (node.Empty()) {
         *nodeRef = TreePointer(value);
         return;
@@ -395,7 +397,7 @@ void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer
         uint32_t pos;
         for (pos = 0; (pos < node->count) && (node->key[pos] < keyByte); pos++);
         std::memmove(node->key + pos + 1, node->key + pos, node->count - pos);
-        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(idx_t));
+        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(data_t));
         node->key[pos] = keyByte;
         node->child[pos] = child;
         node->count++;
@@ -406,7 +408,7 @@ void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, MAX_PREFIX_LENGTH));
         for (idx_t i = 0; i < 4; i++)
             newNode->key[i] = flipSign(node->key[i]);
-        std::memcpy(newNode->child, node->child, node->count * sizeof(idx_t));
+        std::memcpy(newNode->child, node->child, node->count * sizeof(data_t));
         delete node;
         insertNode16(newNode, nodeRef, keyByte, child);
     }
@@ -420,14 +422,14 @@ void insertNode16(Node16* node, TreePointer* nodeRef, uint8_t keyByte, TreePoint
         uint16_t bitfield = _mm_movemask_epi8(cmp) & (0xFFFF >> (16 - node->count));
         uint32_t pos = bitfield ? ctz(bitfield) : node->count;
         std::memmove(node->key + pos + 1, node->key + pos, node->count - pos);
-        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(idx_t));
+        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(data_t));
         node->key[pos] = keyByteFlipped;
         node->child[pos] = child;
         node->count++;
     } else {
         Node48* newNode = new Node48();
         *nodeRef = newNode;
-        std::memcpy(newNode->child, node->child, node->count * sizeof(idx_t));
+        std::memcpy(newNode->child, node->child, node->count * sizeof(data_t));
         for (idx_t i = 0; i < node->count; i++) {
             newNode->childIndex[flipSign(node->key[i])] = i;
         }
@@ -515,7 +517,7 @@ void erase(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth) {
 void eraseNode4(Node4* node, TreePointer* nodeRef, TreePointer* leafPlace) {
     uint32_t pos = leafPlace - node->child;
     std::memmove(node->key + pos, node->key + pos + 1, node->count - pos - 1);
-    std::memmove(node->child + pos, node->child + pos + 1, (node->count - pos - 1) * sizeof(idx_t));
+    std::memmove(node->child + pos, node->child + pos + 1, (node->count - pos - 1) * sizeof(data_t));
     node->count--;
     if (node->count == 1) {
         TreePointer child = node->child[0];
@@ -541,7 +543,7 @@ void eraseNode4(Node4* node, TreePointer* nodeRef, TreePointer* leafPlace) {
 void eraseNode16(Node16* node, TreePointer* nodeRef, TreePointer* leafPlace) {
     uint32_t pos = leafPlace - node->child;
     std::memmove(node->key + pos, node->key + pos + 1, node->count - pos - 1);
-    std::memmove(node->child + pos, node->child + pos + 1, (node->count - pos - 1) * sizeof(idx_t));
+    std::memmove(node->child + pos, node->child + pos + 1, (node->count - pos - 1) * sizeof(data_t));
     node->count--;
     if (node->count == 3) {
         Node4* newNode = new Node4();
@@ -550,7 +552,7 @@ void eraseNode16(Node16* node, TreePointer* nodeRef, TreePointer* leafPlace) {
         for (idx_t i = 0; i < newNode->count; i++) {
             newNode->key[i] = flipSign(node->key[i]);
         }
-        std::memcpy(newNode->child, node->child, newNode->count * sizeof(idx_t));
+        std::memcpy(newNode->child, node->child, newNode->count * sizeof(data_t));
         *nodeRef = newNode;
         delete node;
     }
@@ -593,7 +595,8 @@ void eraseNode256(Node256* node, TreePointer* nodeRef, uint8_t keyByte) {
 
 void rangeScan(TreePointer node, key_t lowerKey, key_t upperKey, bool contain_start, bool contain_end,
                std::vector<babydb::idx_t>& row_ids) {
-    // Add your code here
+    // P1 TODO: Add your code here
+    throw std::logic_error("Unimplemented function");
 }
 
 void destroy(TreePointer node) {
@@ -674,6 +677,7 @@ ArtIndex::ArtIndex(const std::string &name, Table &table, const std::string &key
 ArtIndex::~ArtIndex() {}
 
 void ArtIndex::InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts) {
+    // P1 TODO: Add ts support
     if (ScanKey(key) != INVALID_ID) {
         throw std::logic_error("duplicated key");
     }
@@ -683,12 +687,14 @@ void ArtIndex::InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts) {
 }
 
 void ArtIndex::EraseEntry(const data_t &key, idx_t row_id, idx_t start_ts, idx_t end_ts) {
+    // P1 TODO: Add ts support
     key_t keyBytes;
     loadKey(key, keyBytes);
     erase(art_tree_->root_, &art_tree_->root_, keyBytes, 0);
 }
 
 idx_t ArtIndex::ScanKey(const data_t &key, idx_t start_ts, idx_t end_ts) {
+    // P1 TODO: This version returns the original key, change it to return the rowid
     key_t keyBytes;
     loadKey(key, keyBytes);
     TreePointer leaf = lookup(art_tree_->root_, keyBytes, 0);
@@ -699,6 +705,7 @@ idx_t ArtIndex::ScanKey(const data_t &key, idx_t start_ts, idx_t end_ts) {
 }
 
 void ArtIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, idx_t start_ts, idx_t end_ts) {
+    // P1 TODO: Implement rangeScan & Add ts support
     row_ids.clear();
     key_t lowerKey, upperKey;
     loadKey(range.start, lowerKey);
