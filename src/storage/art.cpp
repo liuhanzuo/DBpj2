@@ -1,8 +1,5 @@
 #include "storage/art.hpp"
 
-#include "common/typedefs.hpp"
-#include "storage/index.hpp"
-
 #include <cassert>
 #include <cstring>
 #include <cstdlib>
@@ -12,25 +9,28 @@
 #include <emmintrin.h> // SSE2 intrinsics
 #include <vector>
 
-namespace {
+namespace babydb {
 
-// 常量定义
-static const int8_t NodeType4   = 0;
-static const int8_t NodeType16  = 1;
-static const int8_t NodeType48  = 2;
-static const int8_t NodeType256 = 3;
+namespace ART {
 
-static const unsigned maxPrefixLength = 9;
+enum NodeType : uint8_t {
+    NodeType4   = 0,
+    NodeType16  = 1,
+    NodeType48  = 2,
+    NodeType256 = 3
+};
+
+static const uint32_t maxPrefixLength = 9;
 static const uint8_t emptyMarker = 48;
 
-// ART树各节点的通用结构
+// Shared structure for each type of tree nodes on ART
 struct Node {
-    uint32_t prefixLength;    
-    uint16_t count;           
-    int8_t   type;           
-    uint8_t  prefix[maxPrefixLength]; 
+    uint32_t prefixLength;
+    uint16_t count;
+    NodeType type;
+    uint8_t  prefix[maxPrefixLength];
 
-    Node(int8_t t) : prefixLength(0), count(0), type(t) {}
+    Node(NodeType t) : prefixLength(0), count(0), type(t) {}
 };
 
 struct Node4 : Node {
@@ -85,15 +85,15 @@ uint8_t flipSign(uint8_t keyByte) {
     return keyByte ^ 128;
 }
 
-void loadKey(uintptr_t tid, uint8_t key[]) {
+void loadKey(uintptr_t tid, uint8_t key[8]) {
     reinterpret_cast<uint64_t*>(key)[0] = __builtin_bswap64(tid);
 }
 
-static inline unsigned ctz(uint16_t x) {
+static inline uint32_t ctz(uint16_t x) {
 #ifdef __GNUC__
     return __builtin_ctz(x);
 #else
-    unsigned n = 1;
+    uint32_t n = 1;
     if ((x & 0xFF) == 0) { n += 8; x >>= 8; }
     if ((x & 0x0F) == 0) { n += 4; x >>= 4; }
     if ((x & 0x03) == 0) { n += 2; x >>= 2; }
@@ -101,34 +101,40 @@ static inline unsigned ctz(uint16_t x) {
 #endif
 }
 
-
 Node** findChild(Node* n, uint8_t keyByte) {
-    switch(n->type) {
+    switch (n->type) {
         case NodeType4: {
             Node4* node = static_cast<Node4*>(n);
-            for (unsigned i = 0; i < node->count; i++)
-                if (node->key[i] == keyByte)
+            for (idx_t i = 0; i < node->count; i++) {
+                if (node->key[i] == keyByte) {
                     return &node->child[i];
+                }
+            }
             break;
         }
         case NodeType16: {
             Node16* node = static_cast<Node16*>(n);
             __m128i cmp = _mm_cmpeq_epi8(_mm_set1_epi8(flipSign(keyByte)),
                                          _mm_loadu_si128(reinterpret_cast<__m128i*>(node->key)));
-            unsigned bitfield = _mm_movemask_epi8(cmp) & ((1 << node->count) - 1);
-            if (bitfield)
+            uint32_t bitfield = _mm_movemask_epi8(cmp) & ((1 << node->count) - 1);
+            if (bitfield) {
                 return &node->child[ctz(bitfield)];
+            }
             break;
         }
         case NodeType48: {
             Node48* node = static_cast<Node48*>(n);
-            if (node->childIndex[keyByte] != emptyMarker)
+            if (node->childIndex[keyByte] != emptyMarker) {
                 return &node->child[node->childIndex[keyByte]];
+            }
             break;
         }
         case NodeType256: {
             Node256* node = static_cast<Node256*>(n);
             return &node->child[keyByte];
+        }
+        default: {
+            B_ASSERT_MSG(false, "Invalid Node Type in ART");
         }
     }
     static Node* nullNode = nullptr;
@@ -136,11 +142,13 @@ Node** findChild(Node* n, uint8_t keyByte) {
 }
 
 Node* minimum(Node* node) {
-    if (!node)
+    if (node == nullptr) {
         return nullptr;
-    if (isLeaf(node))
+    }
+    if (isLeaf(node)) {
         return node;
-    switch(node->type) {
+    }
+    switch (node->type) {
         case NodeType4: {
             Node4* n = static_cast<Node4*>(node);
             return minimum(n->child[0]);
@@ -151,16 +159,18 @@ Node* minimum(Node* node) {
         }
         case NodeType48: {
             Node48* n = static_cast<Node48*>(node);
-            unsigned pos = 0;
-            while(n->childIndex[pos] == emptyMarker)
+            uint32_t pos = 0;
+            while (n->childIndex[pos] == emptyMarker) {
                 pos++;
+            }
             return minimum(n->child[n->childIndex[pos]]);
         }
         case NodeType256: {
             Node256* n = static_cast<Node256*>(node);
-            unsigned pos = 0;
-            while(!n->child[pos])
+            uint32_t pos = 0;
+            while (!n->child[pos]) {
                 pos++;
+            }
             return minimum(n->child[pos]);
         }
     }
@@ -168,10 +178,12 @@ Node* minimum(Node* node) {
 }
 
 Node* maximum(Node* node) {
-    if (!node)
+    if (node == nullptr) {
         return nullptr;
-    if (isLeaf(node))
+    }
+    if (isLeaf(node)) {
         return node;
+    }
     switch(node->type) {
         case NodeType4: {
             Node4* n = static_cast<Node4*>(node);
@@ -183,72 +195,87 @@ Node* maximum(Node* node) {
         }
         case NodeType48: {
             Node48* n = static_cast<Node48*>(node);
-            unsigned pos = 255;
-            while(n->childIndex[pos] == emptyMarker)
+            uint32_t pos = 255;
+            while (n->childIndex[pos] == emptyMarker) {
                 pos--;
+            }
             return maximum(n->child[n->childIndex[pos]]);
         }
         case NodeType256: {
             Node256* n = static_cast<Node256*>(node);
-            unsigned pos = 255;
-            while(!n->child[pos])
+            uint32_t pos = 255;
+            while (!n->child[pos]) {
                 pos--;
+            }
             return maximum(n->child[pos]);
         }
     }
     return nullptr;
 }
 
-bool leafMatches(Node* leaf, uint8_t key[], unsigned keyLength, unsigned depth, unsigned maxKeyLength) {
+bool leafMatches(Node* leaf, uint8_t key[8], uint32_t keyLength, uint32_t depth, uint32_t maxKeyLength) {
     if (depth != keyLength) {
         uint8_t leafKey[maxKeyLength];
         loadKey(getLeafValue(leaf), leafKey);
-        for (unsigned i = depth; i < keyLength; i++)
-            if (leafKey[i] != key[i])
+        for (idx_t i = depth; i < keyLength; i++) {
+            if (leafKey[i] != key[i]) {
                 return false;
+            }
+        }
     }
     return true;
 }
 
-unsigned prefixMismatch(Node* node, uint8_t key[], unsigned depth, unsigned maxKeyLength) {
-    unsigned pos;
+uint32_t prefixMismatch(Node* node, uint8_t key[8], uint32_t depth, uint32_t maxKeyLength) {
+    uint32_t pos;
     if (node->prefixLength > maxPrefixLength) {
-        for (pos = 0; pos < maxPrefixLength; pos++)
-            if (key[depth + pos] != node->prefix[pos])
+        for (pos = 0; pos < maxPrefixLength; pos++) {
+            if (key[depth + pos] != node->prefix[pos]) {
                 return pos;
+            }
+        }
         uint8_t minKey[maxKeyLength];
         loadKey(getLeafValue(minimum(node)), minKey);
-        for (; pos < node->prefixLength; pos++)
-            if (key[depth + pos] != minKey[depth + pos])
+        for (; pos < node->prefixLength; pos++) {
+            if (key[depth + pos] != minKey[depth + pos]) {
                 return pos;
+            }
+        }
     } else {
-        for (pos = 0; pos < node->prefixLength; pos++)
-            if (key[depth + pos] != node->prefix[pos])
+        for (pos = 0; pos < node->prefixLength; pos++) {
+            if (key[depth + pos] != node->prefix[pos]) {
                 return pos;
+            }
+        }
     }
     return pos;
 }
 
-Node* lookup(Node* node, uint8_t key[], unsigned keyLength, unsigned depth, unsigned maxKeyLength) {
+Node* lookup(Node* node, uint8_t key[8], uint32_t keyLength, uint32_t depth, uint32_t maxKeyLength) {
     bool skippedPrefix = false;
     while (node != nullptr) {
         if (isLeaf(node)) {
-            if (!skippedPrefix && depth == keyLength)
+            if (!skippedPrefix && depth == keyLength) {
                 return node;
+            }
             if (depth != keyLength) {
                 uint8_t leafKey[maxKeyLength];
                 loadKey(getLeafValue(node), leafKey);
-                for (unsigned i = (skippedPrefix ? 0 : depth); i < keyLength; i++)
-                    if (leafKey[i] != key[i])
+                for (idx_t i = (skippedPrefix ? 0 : depth); i < keyLength; i++) {
+                    if (leafKey[i] != key[i]) {
                         return nullptr;
+                    }
+                }
             }
             return node;
         }
         if (node->prefixLength) {
             if (node->prefixLength < maxPrefixLength) {
-                for (unsigned pos = 0; pos < node->prefixLength; pos++)
-                    if (key[depth + pos] != node->prefix[pos])
+                for (uint32_t pos = 0; pos < node->prefixLength; pos++) {
+                    if (key[depth + pos] != node->prefix[pos]) {
                         return nullptr;
+                    }
+                }
             } else {
                 skippedPrefix = true;
             }
@@ -262,13 +289,13 @@ Node* lookup(Node* node, uint8_t key[], unsigned keyLength, unsigned depth, unsi
 }
 
 
-void insert(Node* node, Node** nodeRef, uint8_t key[], unsigned depth, uintptr_t value, unsigned maxKeyLength);
+void insert(Node* node, Node** nodeRef, uint8_t key[8], uint32_t depth, uintptr_t value, uint32_t maxKeyLength);
 void insertNode4(Node4* node, Node** nodeRef, uint8_t keyByte, Node* child);
 void insertNode16(Node16* node, Node** nodeRef, uint8_t keyByte, Node* child);
 void insertNode48(Node48* node, Node** nodeRef, uint8_t keyByte, Node* child);
 void insertNode256(Node256* node, Node** nodeRef, uint8_t keyByte, Node* child);
 
-void insert(Node* node, Node** nodeRef, uint8_t key[], unsigned depth, uintptr_t value, unsigned maxKeyLength) {
+void insert(Node* node, Node** nodeRef, uint8_t key[8], uint32_t depth, uintptr_t value, uint32_t maxKeyLength) {
     if (node == nullptr) {
         *nodeRef = makeLeaf(value);
         return;
@@ -276,9 +303,10 @@ void insert(Node* node, Node** nodeRef, uint8_t key[], unsigned depth, uintptr_t
     if (isLeaf(node)) {
         uint8_t existingKey[maxKeyLength];
         loadKey(getLeafValue(node), existingKey);
-        unsigned newPrefixLength = 0;
-        while (existingKey[depth + newPrefixLength] == key[depth + newPrefixLength])
+        uint32_t newPrefixLength = 0;
+        while (existingKey[depth + newPrefixLength] == key[depth + newPrefixLength]) {
             newPrefixLength++;
+        }
         Node4* newNode = new Node4();
         newNode->prefixLength = newPrefixLength;
         std::memcpy(newNode->prefix, key + depth, std::min(newPrefixLength, maxPrefixLength));
@@ -288,7 +316,7 @@ void insert(Node* node, Node** nodeRef, uint8_t key[], unsigned depth, uintptr_t
         return;
     }
     if (node->prefixLength) {
-        unsigned mismatchPos = prefixMismatch(node, key, depth, maxKeyLength);
+        uint32_t mismatchPos = prefixMismatch(node, key, depth, maxKeyLength);
         if (mismatchPos != node->prefixLength) {
             Node4* newNode = new Node4();
             *nodeRef = newNode;
@@ -334,7 +362,7 @@ void insert(Node* node, Node** nodeRef, uint8_t key[], unsigned depth, uintptr_t
 
 void insertNode4(Node4* node, Node** nodeRef, uint8_t keyByte, Node* child) {
     if (node->count < 4) {
-        unsigned pos;
+        uint32_t pos;
         for (pos = 0; (pos < node->count) && (node->key[pos] < keyByte); pos++);
         std::memmove(node->key + pos + 1, node->key + pos, node->count - pos);
         std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(uintptr_t));
@@ -346,7 +374,7 @@ void insertNode4(Node4* node, Node** nodeRef, uint8_t keyByte, Node* child) {
         *nodeRef = newNode;
         newNode->count = 4;
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, maxPrefixLength));
-        for (unsigned i = 0; i < 4; i++)
+        for (idx_t i = 0; i < 4; i++)
             newNode->key[i] = flipSign(node->key[i]);
         std::memcpy(newNode->child, node->child, node->count * sizeof(uintptr_t));
         delete node;
@@ -360,7 +388,7 @@ void insertNode16(Node16* node, Node** nodeRef, uint8_t keyByte, Node* child) {
         __m128i cmp = _mm_cmplt_epi8(_mm_set1_epi8(keyByteFlipped),
                                       _mm_loadu_si128(reinterpret_cast<__m128i*>(node->key)));
         uint16_t bitfield = _mm_movemask_epi8(cmp) & (0xFFFF >> (16 - node->count));
-        unsigned pos = bitfield ? ctz(bitfield) : node->count;
+        uint32_t pos = bitfield ? ctz(bitfield) : node->count;
         std::memmove(node->key + pos + 1, node->key + pos, node->count - pos);
         std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(uintptr_t));
         node->key[pos] = keyByteFlipped;
@@ -370,8 +398,9 @@ void insertNode16(Node16* node, Node** nodeRef, uint8_t keyByte, Node* child) {
         Node48* newNode = new Node48();
         *nodeRef = newNode;
         std::memcpy(newNode->child, node->child, node->count * sizeof(uintptr_t));
-        for (unsigned i = 0; i < node->count; i++)
+        for (idx_t i = 0; i < node->count; i++) {
             newNode->childIndex[flipSign(node->key[i])] = i;
+        }
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, maxPrefixLength));
         newNode->count = node->count;
         delete node;
@@ -381,17 +410,19 @@ void insertNode16(Node16* node, Node** nodeRef, uint8_t keyByte, Node* child) {
 
 void insertNode48(Node48* node, Node** nodeRef, uint8_t keyByte, Node* child) {
     if (node->count < 48) {
-        unsigned pos = node->count;
-        while (node->child[pos])
+        uint32_t pos = node->count;
+        while (node->child[pos]) {
             pos++;
+        }
         node->child[pos] = child;
         node->childIndex[keyByte] = pos;
         node->count++;
     } else {
         Node256* newNode = new Node256();
-        for (unsigned i = 0; i < 256; i++) {
-            if (node->childIndex[i] != emptyMarker)
+        for (idx_t i = 0; i < 256; i++) {
+            if (node->childIndex[i] != emptyMarker) {
                 newNode->child[i] = node->child[node->childIndex[i]];
+            }
         }
         newNode->count = node->count;
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, maxPrefixLength));
@@ -406,25 +437,27 @@ void insertNode256(Node256* node, Node** nodeRef, uint8_t keyByte, Node* child) 
     node->child[keyByte] = child;
 }
 
-void erase(Node* node, Node** nodeRef, uint8_t key[], unsigned keyLength, unsigned depth, unsigned maxKeyLength);
+void erase(Node* node, Node** nodeRef, uint8_t key[8], uint32_t keyLength, uint32_t depth, uint32_t maxKeyLength);
 void eraseNode4(Node4* node, Node** nodeRef, Node** leafPlace);
 void eraseNode16(Node16* node, Node** nodeRef, Node** leafPlace);
 void eraseNode48(Node48* node, Node** nodeRef, uint8_t keyByte);
 void eraseNode256(Node256* node, Node** nodeRef, uint8_t keyByte);
 
-void erase(Node* node, Node** nodeRef, uint8_t key[], unsigned keyLength, unsigned depth, unsigned maxKeyLength) {
-    if (!node)
+void erase(Node* node, Node** nodeRef, uint8_t key[8], uint32_t keyLength, uint32_t depth, uint32_t maxKeyLength) {
+    if (node == nullptr)
         return;
     if (isLeaf(node)) {
-        if (leafMatches(node, key, keyLength, depth, maxKeyLength))
+        if (leafMatches(node, key, keyLength, depth, maxKeyLength)) {
             *nodeRef = nullptr;
+        }
         return;
     }
     if (node->prefixLength) {
-        if (prefixMismatch(node, key, depth, maxKeyLength) != node->prefixLength)
+        if (prefixMismatch(node, key, depth, maxKeyLength) != node->prefixLength) {
             return;
-        else
+        } else {
             depth += node->prefixLength;
+        }
     }
     Node** child = findChild(node, key[depth]);
     if (child && isLeaf(*child) && leafMatches(*child, key, keyLength, depth, maxKeyLength)) {
@@ -448,20 +481,20 @@ void erase(Node* node, Node** nodeRef, uint8_t key[], unsigned keyLength, unsign
 }
 
 void eraseNode4(Node4* node, Node** nodeRef, Node** leafPlace) {
-    unsigned pos = leafPlace - node->child;
+    uint32_t pos = leafPlace - node->child;
     std::memmove(node->key + pos, node->key + pos + 1, node->count - pos - 1);
     std::memmove(node->child + pos, node->child + pos + 1, (node->count - pos - 1) * sizeof(uintptr_t));
     node->count--;
     if (node->count == 1) {
         Node* child = node->child[0];
         if (!isLeaf(child)) {
-            unsigned l1 = node->prefixLength;
+            uint32_t l1 = node->prefixLength;
             if (l1 < maxPrefixLength) {
                 node->prefix[l1] = node->key[0];
                 l1++;
             }
             if (l1 < maxPrefixLength) {
-                unsigned l2 = std::min(child->prefixLength, maxPrefixLength - l1);
+                uint32_t l2 = std::min(child->prefixLength, maxPrefixLength - l1);
                 std::memcpy(node->prefix + l1, child->prefix, l2);
                 l1 += l2;
             }
@@ -474,7 +507,7 @@ void eraseNode4(Node4* node, Node** nodeRef, Node** leafPlace) {
 }
 
 void eraseNode16(Node16* node, Node** nodeRef, Node** leafPlace) {
-    unsigned pos = leafPlace - node->child;
+    uint32_t pos = leafPlace - node->child;
     std::memmove(node->key + pos, node->key + pos + 1, node->count - pos - 1);
     std::memmove(node->child + pos, node->child + pos + 1, (node->count - pos - 1) * sizeof(uintptr_t));
     node->count--;
@@ -482,8 +515,9 @@ void eraseNode16(Node16* node, Node** nodeRef, Node** leafPlace) {
         Node4* newNode = new Node4();
         newNode->count = node->count;
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, maxPrefixLength));
-        for (unsigned i = 0; i < newNode->count; i++)
+        for (idx_t i = 0; i < newNode->count; i++) {
             newNode->key[i] = flipSign(node->key[i]);
+        }
         std::memcpy(newNode->child, node->child, newNode->count * sizeof(uintptr_t));
         *nodeRef = newNode;
         delete node;
@@ -497,7 +531,7 @@ void eraseNode48(Node48* node, Node** nodeRef, uint8_t keyByte) {
     if (node->count == 12) {
         Node16* newNode = new Node16();
         *nodeRef = newNode;
-        for (unsigned b = 0; b < 256; b++) {
+        for (idx_t b = 0; b < 256; b++) {
             if (node->childIndex[b] != emptyMarker) {
                 newNode->key[newNode->count] = flipSign(b);
                 newNode->child[newNode->count] = node->child[node->childIndex[b]];
@@ -514,7 +548,7 @@ void eraseNode256(Node256* node, Node** nodeRef, uint8_t keyByte) {
     if (node->count == 37) {
         Node48* newNode = new Node48();
         *nodeRef = newNode;
-        for (unsigned b = 0; b < 256; b++) {
+        for (idx_t b = 0; b < 256; b++) {
             if (node->child[b]) {
                 newNode->childIndex[b] = newNode->count;
                 newNode->child[newNode->count] = node->child[b];
@@ -525,42 +559,48 @@ void eraseNode256(Node256* node, Node** nodeRef, uint8_t keyByte) {
     }
 }
 
-void rangeScan(Node* node, uint8_t lowerKey[], uint8_t upperKey[], unsigned keyLength,
+void rangeScan(Node* node, uint8_t lowerKey[8], uint8_t upperKey[8], uint32_t keyLength,
                bool contain_start, bool contain_end, std::vector<babydb::idx_t>& row_ids) {
     // Add your code here
 }
 
 void destroy(Node* node) {
-    if (!node)
+    if (!node) {
         return;
-    if (isLeaf(node))
+    }
+    if (isLeaf(node)) {
         return;
+    }
     switch (node->type) {
         case NodeType4: {
             Node4* n4 = static_cast<Node4*>(node);
-            for (unsigned i = 0; i < n4->count; i++)
+            for (idx_t i = 0; i < n4->count; i++) {
                 destroy(n4->child[i]);
+            }
             break;
         }
         case NodeType16: {
             Node16* n16 = static_cast<Node16*>(node);
-            for (unsigned i = 0; i < n16->count; i++)
+            for (idx_t i = 0; i < n16->count; i++) {
                 destroy(n16->child[i]);
+            }
             break;
         }
         case NodeType48: {
             Node48* n48 = static_cast<Node48*>(node);
-            for (unsigned i = 0; i < 256; i++) {
-                if (n48->childIndex[i] != emptyMarker)
+            for (idx_t i = 0; i < 256; i++) {
+                if (n48->childIndex[i] != emptyMarker) {
                     destroy(n48->child[n48->childIndex[i]]);
+                }
             }
             break;
         }
         case NodeType256: {
             Node256* n256 = static_cast<Node256*>(node);
-            for (unsigned i = 0; i < 256; i++) {
-                if (n256->child[i])
+            for (idx_t i = 0; i < 256; i++) {
+                if (n256->child[i]) {
                     destroy(n256->child[i]);
+                }
             }
             break;
         }
@@ -568,9 +608,9 @@ void destroy(Node* node) {
     delete node;
 }
 
-} // end anonymous namespace
+} // end ART namespace
 
-namespace babydb {
+using namespace ART;
 
 ArtIndex::ArtIndex(const std::string &name, Table &table, const std::string &key_name)
     : RangeIndex(name, table, key_name), root_(nullptr) {
@@ -591,7 +631,6 @@ ArtIndex::~ArtIndex() {
 }
 
 void ArtIndex::InsertEntry(const data_t &key, idx_t /*row_id*/, idx_t /*start_ts*/) {
-    
     if (ScanKey(key) != INVALID_ID) {
         throw std::logic_error("duplicated key");
     }
@@ -620,7 +659,7 @@ void ArtIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, id
     uint8_t lowerKey[8], upperKey[8];
     loadKey(range.start, lowerKey);
     loadKey(range.end, upperKey);
-   
+
     rangeScan(reinterpret_cast<Node*>(root_), lowerKey, upperKey, 8, range.contain_start, range.contain_end, row_ids);
 }
 

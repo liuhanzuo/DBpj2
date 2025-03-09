@@ -2,7 +2,9 @@
 
 #include <cassert>
 
-#define B_ASSERT(...) assert(__VA_ARGS__)
+#define B_ASSERT_MSG(expr, message) assert((expr) && message)
+
+#define B_ASSERT(expr) assert(expr)
 
 // Macros to disable copying and moving
 #define DISALLOW_COPY(cname)                        \
