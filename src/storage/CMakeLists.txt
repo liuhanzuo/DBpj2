@@ -4,6 +4,7 @@ add_library(
     catalog.cpp
     index.cpp
     stlmap_index.cpp
+    art.cpp
     table.cpp)
 
 set(ALL_OBJECT_FILES

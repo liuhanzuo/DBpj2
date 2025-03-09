@@ -15,18 +15,18 @@ StlmapIndex::StlmapIndex(const std::string &name, Table &table, const std::strin
     }
 }
 
-void StlmapIndex::InsertEntry(const data_t &key, idx_t row_id,idx_t start_ts=0) {
+void StlmapIndex::InsertEntry(const data_t &key, idx_t row_id,idx_t start_ts ) {
     if (index_.find(key) != index_.end()) {
         throw std::logic_error("duplicated key");
     }
     index_[key] = row_id;
 };
 
-void StlmapIndex::EraseEntry(const data_t &key, [[maybe_unused]] idx_t row_id,idx_t start_ts=0,idx_t end_ts=0) {
+void StlmapIndex::EraseEntry(const data_t &key, [[maybe_unused]] idx_t row_id,idx_t start_ts ,idx_t end_ts ) {
     index_.erase(key);
 };
 
-idx_t StlmapIndex::ScanKey(const data_t &key,idx_t start_ts=0,idx_t end_ts=0) {
+idx_t StlmapIndex::ScanKey(const data_t &key,idx_t start_ts ,idx_t end_ts ) {
     auto ite = index_.find(key);
     if (ite == index_.end()) {
         return INVALID_ID;
@@ -34,7 +34,7 @@ idx_t StlmapIndex::ScanKey(const data_t &key,idx_t start_ts=0,idx_t end_ts=0) {
     return ite->second;
 }
 
-void StlmapIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids,idx_t start_ts=0,idx_t end_ts=0) {
+void StlmapIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids,idx_t start_ts ,idx_t end_ts ) {
     row_ids.clear();
     std::map<data_t, idx_t>::iterator start_ite;
     std::map<data_t, idx_t>::iterator end_ite;
