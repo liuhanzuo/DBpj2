@@ -19,42 +19,42 @@ using babydb::idx_t;
 const idx_t INVALID_ID = std::numeric_limits<idx_t>::max();
 
 
-void BuildSortedTable(Table &table, int count) {
+void BuildSortedTable(Table &table, idx_t count) {
     auto write_guard = table.GetWriteTableGuard();
-    for (int i = 1; i <= count; i++) {
-        // value 为 i-1
+    for (idx_t i = 1; i <= count; i++) {
+        // value is i-1
         write_guard.Rows().push_back({Tuple{static_cast<data_t>(i), static_cast<data_t>(i - 1)}, TupleMeta()});
     }
     write_guard.Drop();
 }
 
-void BuildRandomTable(Table &table, int count, int seed = 42) {
-    std::vector<int> keys;
+void BuildRandomTable(Table &table, idx_t count, int seed = 42) {
+    std::vector<data_t> keys;
     keys.reserve(count);
-    for (int i = 1; i <= count; i++) {
+    for (idx_t i = 1; i <= count; i++) {
         keys.push_back(i);
     }
     std::mt19937 rng(seed);
     std::shuffle(keys.begin(), keys.end(), rng);
     
     auto write_guard = table.GetWriteTableGuard();
-    for (int i = 0; i < count; i++) {
+    for (idx_t i = 0; i < count; i++) {
         write_guard.Rows().push_back({Tuple{static_cast<data_t>(keys[i]), static_cast<data_t>(i)}, TupleMeta()});
     }
     write_guard.Drop();
 }
 
-void BuildSparseTable(Table &table, int count, int gap = 1000, int seed = 42) {
-    std::vector<uint64_t> keys;
+void BuildSparseTable(Table &table, idx_t count, int gap = 1000, int seed = 42) {
+    std::vector<data_t> keys;
     keys.reserve(count);
-    for (int i = 1; i <= count; i++) {
-        keys.push_back(static_cast<uint64_t>(i) * gap);
+    for (idx_t i = 1; i <= count; i++) {
+        keys.push_back(static_cast<data_t>(i) * gap);
     }
     std::mt19937 rng(seed);
     std::shuffle(keys.begin(), keys.end(), rng);
     
     auto write_guard = table.GetWriteTableGuard();
-    for (int i = 0; i < count; i++) {
+    for (idx_t i = 0; i < count; i++) {
         write_guard.Rows().push_back({Tuple{keys[i], static_cast<data_t>(i)}, TupleMeta()});
     }
     write_guard.Drop();
@@ -66,7 +66,7 @@ std::unordered_map<data_t, idx_t> BuildKeyMapping(Table &table) {
     auto read_guard = table.GetReadTableGuard();
     for (idx_t i = 0; i < read_guard.Rows().size(); i++) {
         data_t key = read_guard.Rows()[i].tuple_.KeyFromTuple(table.schema_.GetKeyAttr("c0"));
-        mapping[key] = i; // row id 为 i
+        mapping[key] = i; // row id is i
     }
     return mapping;
 }
@@ -93,7 +93,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery) {
     std::vector<idx_t> result;
     index.ScanRange({20000, 30000, true, true}, result, 100, 100);
     std::vector<idx_t> expected;
-    for (int i = 20000; i <= 30000; i++) {
+    for (idx_t i = 20000; i <= 30000; i++) {
         expected.push_back(mapping[i]);
     }
     VerifyRangeResult(result, expected);
@@ -105,8 +105,8 @@ TEST(ArtIndexMVCC, RandomKeys_OnlyPointQuery) {
     BuildRandomTable(table, 100000, 123);
     ArtIndex index("art_random", table, "c0");
     auto mapping = BuildKeyMapping(table);
-    std::vector<int> testKeys = {10, 50000, 100000};
-    for (int k : testKeys) {
+    std::vector<data_t> testKeys = {10, 50000, 100000};
+    for (data_t k : testKeys) {
         EXPECT_EQ(index.ScanKey(k, 100, 100), mapping[k]);
     }
 }
@@ -159,7 +159,7 @@ TEST(ArtIndexMVCC, SparseKeys_OnlyPointQuery) {
     BuildSparseTable(table, 100000, 10000);
     ArtIndex index("art_sparse", table, "c0");
     auto mapping = BuildKeyMapping(table);
-    for (int i = 1; i <= 100000; i += 10000) {
+    for (idx_t i = 1; i <= 100000; i += 10000) {
         data_t key = static_cast<data_t>(i) * 10000;
         EXPECT_EQ(index.ScanKey(key, 100, 100), mapping[key]);
     }
@@ -190,7 +190,7 @@ TEST(ArtIndexMVCC, SparseKeys_RangeQuery) {
 TEST(ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
     Schema schema{"c0", "c1"};
     Table table("mixed_high_query", schema);
-    const int count = 100000;
+    const idx_t count = 100000;
     BuildRandomTable(table, count, 789);
     ArtIndex index("art_mixed_high", table, "c0");
     auto mapping = BuildKeyMapping(table);
@@ -203,8 +203,8 @@ TEST(ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
     std::sort(allKeys.begin(), allKeys.end());
     std::mt19937 rng(789);
     std::uniform_int_distribution<> dist(0, allKeys.size() - 1);
-    for (int i = 0; i < 100000; i++) {
-        int idx = dist(rng);
+    for (idx_t i = 0; i < 100000; i++) {
+        idx_t idx = dist(rng);
         data_t key = allKeys[idx];
         EXPECT_EQ(index.ScanKey(key, 100, 100), mapping[key]);
     }
@@ -215,17 +215,17 @@ TEST(ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
 TEST(ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
     Schema schema{"c0", "c1"};
     Table table("random_alt_insert_query", schema);
-    const int count = 100000;
-    std::vector<int> keys;
-    for (int i = 1; i <= count; i++) {
+    const idx_t count = 100000;
+    std::vector<data_t> keys;
+    for (idx_t i = 1; i <= count; i++) {
         keys.push_back(i);
     }
     std::mt19937 rng(1234);
     std::shuffle(keys.begin(), keys.end(), rng);
-    for (int start = 0; start < count; start += 1000) {
+    for (idx_t start = 0; start < count; start += 1000) {
         {
             auto write_guard = table.GetWriteTableGuard();
-            for (int i = start; i < start + 1000 && i < count; i++) {
+            for (idx_t i = start; i < start + 1000 && i < count; i++) {
                 write_guard.Rows().push_back({Tuple{static_cast<data_t>(keys[i]), static_cast<data_t>(i)}, TupleMeta()});
             }
             write_guard.Drop();
@@ -233,14 +233,14 @@ TEST(ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
         {
             ArtIndex tempIndex("art_temp", table, "c0");
             auto mapping = BuildKeyMapping(table);
-            int cur = std::min(start + 1000 - 1, count - 1);
+            idx_t cur = std::min(start + 1000 - 1, count - 1);
             EXPECT_EQ(tempIndex.ScanKey(keys[cur], 100, 100), mapping[keys[cur]]);
         }
     }
     ArtIndex index("art_random_alt", table, "c0");
     auto mapping = BuildKeyMapping(table);
-    for (int i = 0; i < count; i += 5000) {
-         EXPECT_EQ(index.ScanKey(keys[i], 100, 100), mapping[keys[i]]);
+    for (idx_t i = 0; i < count; i += 5000) {
+        EXPECT_EQ(index.ScanKey(keys[i], 100, 100), mapping[keys[i]]);
     }
 }
 
@@ -255,12 +255,12 @@ TEST(ArtIndexMVCC, RandomKeys_BulkInsertThenBulkQuery) {
     auto mapping = BuildKeyMapping(table);
     std::vector<data_t> allKeys;
     {
-         auto read_guard = table.GetReadTableGuard();
-         for (const auto &row : read_guard.Rows())
-              allKeys.push_back(row.tuple_.KeyFromTuple(table.schema_.GetKeyAttr("c0")));
+        auto read_guard = table.GetReadTableGuard();
+        for (const auto &row : read_guard.Rows())
+            allKeys.push_back(row.tuple_.KeyFromTuple(table.schema_.GetKeyAttr("c0")));
     }
     std::sort(allKeys.begin(), allKeys.end());
-    for (int i = 0; i < allKeys.size(); i += 5000) {
+    for (idx_t i = 0; i < allKeys.size(); i += 5000) {
          EXPECT_EQ(index.ScanKey(allKeys[i], 100, 100), mapping[allKeys[i]]);
     }
 }
@@ -272,9 +272,9 @@ TEST(ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
     BuildSparseTable(table, 100000, 10000, 890);
     ArtIndex index("art_sparse_bulk", table, "c0");
     auto mapping = BuildKeyMapping(table);
-    for (int i = 1; i <= 100000; i += 2000) {
-         data_t key = static_cast<data_t>(i) * 10000;
-         EXPECT_EQ(index.ScanKey(key, 100, 100), mapping[key]);
+    for (idx_t i = 1; i <= 100000; i += 2000) {
+        data_t key = static_cast<data_t>(i) * 10000;
+        EXPECT_EQ(index.ScanKey(key, 100, 100), mapping[key]);
     }
 }
 
@@ -288,7 +288,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
     std::vector<idx_t> result1;
     index.ScanRange({10000, 20000, true, true}, result1, 100, 100);
     std::vector<idx_t> expected1;
-    for (int i = 10000; i <= 20000; i++) {
+    for (idx_t i = 10000; i <= 20000; i++) {
          expected1.push_back(mapping[i]);
     }
     VerifyRangeResult(result1, expected1);
@@ -296,7 +296,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
     std::vector<idx_t> result2;
     index.ScanRange({50000, 60000, true, true}, result2, 100, 100);
     std::vector<idx_t> expected2;
-    for (int i = 50000; i <= 60000; i++) {
+    for (idx_t i = 50000; i <= 60000; i++) {
          expected2.push_back(mapping[i]);
     }
     VerifyRangeResult(result2, expected2);
@@ -305,25 +305,25 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
 TEST(ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
     Schema schema{"c0", "c1"};
     Table table("long_version_chain_all", schema);
-    const int count = 1000;
+    const idx_t count = 1000;
 
     BuildSortedTable(table, count);
     ArtIndex index("art_long_chain_all", table, "c0");
     
-    const int numUpdates = 10000;
+    const idx_t numUpdates = 10000;
    
-    for (int key = 200; key <= 600; key++) {
-        for (int i = 0; i < numUpdates; i++) {
+    for (idx_t key = 200; key <= 600; key++) {
+        for (idx_t i = 0; i < numUpdates; i++) {
       
             index.InsertEntry(key, key * 1000000 + i, 100 + i);
         }
     }
     
  
-    int queryTs = 100 + numUpdates / 2;
+    idx_t queryTs = 100 + numUpdates / 2;
     
   
-    for (int key = 200; key <= 600; key++) {
+    for (idx_t key = 200; key <= 600; key++) {
         idx_t expected = key * 1000000 + (queryTs - 100);
         EXPECT_EQ(index.ScanKey(key, queryTs, queryTs), expected)
             << "Key " << key << " expected version " << expected;
@@ -333,7 +333,7 @@ TEST(ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
     std::vector<idx_t> result;
     index.ScanRange({200, 600, true, true}, result, queryTs, queryTs);
     
-    for (int key = 200; key <= 600; key++) {
+    for (idx_t key = 200; key <= 600; key++) {
         idx_t expected = key * 1000000 + (queryTs - 100);
         bool found = false;
         for (auto v : result) {

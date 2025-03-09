@@ -3,10 +3,11 @@
 #include "common/typedefs.hpp"
 #include "storage/index.hpp"
 
-#include <string>
-#include <vector>
+#include <memory>
 
 namespace babydb {
+
+class ArtTree;
 
 class ArtIndex : public RangeIndex {
 public:
@@ -19,8 +20,7 @@ public:
     void ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, idx_t start_ts = 0, idx_t end_ts = 0) override;
 
 private:
-    // ART树的根节点，内部实现细节在cpp中隐藏，使用 void* 保存不暴露结构
-    void* root_;
+    std::unique_ptr<ArtTree> art_tree_;
 };
 
 } // namespace babydb
