@@ -84,7 +84,7 @@ namespace babydb {
 
 
 
-TEST(ArtIndexMVCC, SortedKeys_RangeQuery) {
+TEST(Project1ArtIndexMVCC, SortedKeys_RangeQuery) {
     Schema schema{"c0", "c1"};
     Table table("sorted_range_query", schema);
     BuildSortedTable(table, 100000);
@@ -99,7 +99,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery) {
     VerifyRangeResult(result, expected);
 }
 
-TEST(ArtIndexMVCC, RandomKeys_OnlyPointQuery) {
+TEST(Project1ArtIndexMVCC, RandomKeys_OnlyPointQuery) {
     Schema schema{"c0", "c1"};
     Table table("random_only_point", schema);
     BuildRandomTable(table, 100000, 123);
@@ -111,7 +111,7 @@ TEST(ArtIndexMVCC, RandomKeys_OnlyPointQuery) {
     }
 }
 
-TEST(ArtIndexMVCC, RandomKeys_RangeQuery) {
+TEST(Project1ArtIndexMVCC, RandomKeys_RangeQuery) {
     Schema schema{"c0", "c1"};
     Table table("random_range_query", schema);
     BuildRandomTable(table, 100000, 456);
@@ -136,7 +136,7 @@ TEST(ArtIndexMVCC, RandomKeys_RangeQuery) {
     VerifyRangeResult(result, expected);
 }
 
-TEST(ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
+TEST(Project1ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
     Schema schema{"c0", "c1"};
     Table table("dense_updates_point", schema);
     BuildSortedTable(table, 100000);
@@ -153,7 +153,7 @@ TEST(ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
 
 
 
-TEST(ArtIndexMVCC, SparseKeys_OnlyPointQuery) {
+TEST(Project1ArtIndexMVCC, SparseKeys_OnlyPointQuery) {
     Schema schema{"c0", "c1"};
     Table table("sparse_only_point", schema);
     BuildSparseTable(table, 100000, 10000);
@@ -165,7 +165,7 @@ TEST(ArtIndexMVCC, SparseKeys_OnlyPointQuery) {
     }
 }
 
-TEST(ArtIndexMVCC, SparseKeys_RangeQuery) {
+TEST(Project1ArtIndexMVCC, SparseKeys_RangeQuery) {
     Schema schema{"c0", "c1"};
     Table table("sparse_range_query", schema);
     BuildSparseTable(table, 100000, 10000, 890);
@@ -187,7 +187,7 @@ TEST(ArtIndexMVCC, SparseKeys_RangeQuery) {
 
 
 
-TEST(ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
+TEST(Project1ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
     Schema schema{"c0", "c1"};
     Table table("mixed_high_query", schema);
     const idx_t count = 100000;
@@ -212,7 +212,7 @@ TEST(ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
 
 
 
-TEST(ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
+TEST(Project1ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
     Schema schema{"c0", "c1"};
     Table table("random_alt_insert_query", schema);
     const idx_t count = 100000;
@@ -247,7 +247,7 @@ TEST(ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
 
 
 
-TEST(ArtIndexMVCC, RandomKeys_BulkInsertThenBulkQuery) {
+TEST(Project1ArtIndexMVCC, RandomKeys_BulkInsertThenBulkQuery) {
     Schema schema{"c0", "c1"};
     Table table("random_bulk", schema);
     BuildRandomTable(table, 100000, 567);
@@ -266,7 +266,7 @@ TEST(ArtIndexMVCC, RandomKeys_BulkInsertThenBulkQuery) {
 }
 
 
-TEST(ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
+TEST(Project1ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
     Schema schema{"c0", "c1"};
     Table table("sparse_bulk", schema);
     BuildSparseTable(table, 100000, 10000, 890);
@@ -278,7 +278,7 @@ TEST(ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
     }
 }
 
-TEST(ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
+TEST(Project1ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
     Schema schema{"c0", "c1"};
     Table table("sorted_multi_range", schema);
     BuildSortedTable(table, 100000);
@@ -302,7 +302,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
     VerifyRangeResult(result2, expected2);
 }
 
-TEST(ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
+TEST(Project1ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
     Schema schema{"c0", "c1"};
     Table table("long_version_chain_all", schema);
     const idx_t count = 1000;
@@ -347,5 +347,36 @@ TEST(ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
     }
 }
 
+TEST(Project1ArtIndexMVCC, ScanRangeTest) {
+    const idx_t N = 1000;
+    Schema schema{"c0", "c1"};
+    Table table("table", schema);
+    {
+        auto write_guard = table.GetWriteTableGuard();
+        // Insert N rows, for row i, the key is just i, and the payload is i+100.
+        for (idx_t i = 0; i < N; i++) {
+            write_guard.Rows().push_back({Tuple{i, i + 100}, TupleMeta()});
+        }
+    }
+    // Construct ART index on the table, the construction function will insert the existing keys automaticly.
+    ArtIndex index("art_index", table, "c0");
+
+    std::vector<idx_t> result;
+    // ScanRange Test: Query the keys in [200, 400] (with the borders).
+    index.ScanRange({200, 400, true, true}, result);
+    std::vector<idx_t> expected;
+    for (idx_t i = 200; i <= 400; i++) {
+        expected.push_back(i);
+    }
+    EXPECT_EQ(result, expected);
+
+    // ScanRange Test: Query the keys in (200, 400) (without the borders).
+    index.ScanRange({200, 400, false, false}, result);
+    expected.clear();
+    for (idx_t i = 201; i < 400; i++) {
+        expected.push_back(i);
+    }
+    EXPECT_EQ(result, expected);
+}
 
 } // namespace babydb

@@ -8,7 +8,8 @@ file(GLOB_RECURSE BABYDB_TEST_SOURCES "${PROJECT_SOURCE_DIR}/test/*/*test.cpp")
 # "make check-tests"
 # #########################################
 add_custom_target(build-tests COMMAND ${CMAKE_CTEST_COMMAND} --show-only)
-add_custom_target(check-tests COMMAND ${CMAKE_CTEST_COMMAND} --verbose)
+add_custom_target(check-tests COMMAND ${CMAKE_CTEST_COMMAND})
+add_custom_target(check-tests-details COMMAND ${CMAKE_CTEST_COMMAND} --verbose)
 
 # #########################################
 # "make XYZ_test"
@@ -22,6 +23,7 @@ foreach (babydb_test_source ${BABYDB_TEST_SOURCES})
     add_executable(${babydb_test_name} EXCLUDE_FROM_ALL ${babydb_test_source})
     add_dependencies(build-tests ${babydb_test_name})
     add_dependencies(check-tests ${babydb_test_name})
+    add_dependencies(check-tests-details ${babydb_test_name})
 
     gtest_discover_tests(${babydb_test_name}
             EXTRA_ARGS
