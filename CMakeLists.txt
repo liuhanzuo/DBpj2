@@ -33,7 +33,7 @@ endif()
 # #####################################################################################################################
 
 if(NOT DEFINED BABYDB_SANITIZER)
-        set(BUSTUB_SANITIZER address)
+        set(BABYDB_SANITIZER address)
 endif()
 
 # Compiler flags.
