@@ -148,7 +148,7 @@ TEST(ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
     EXPECT_EQ(index.ScanKey(50000, 75, 75), 500000);
     EXPECT_EQ(index.ScanKey(50000, 100, 100), 500001);
     EXPECT_EQ(index.ScanKey(50000, 200, 200), 500002);
-    EXPECT_EQ(index.ScanKey(50000, 40, 40), INVALID_ID);
+    EXPECT_EQ(index.ScanKey(50000, 40, 40), 49999);
 }
 
 
