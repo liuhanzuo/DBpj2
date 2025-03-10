@@ -625,6 +625,7 @@ void destroy(TreePointer node) {
             for (idx_t i = 0; i < n4->count; i++) {
                 destroy(n4->child[i]);
             }
+            delete n4;
             break;
         }
         case NodeType16: {
@@ -632,6 +633,7 @@ void destroy(TreePointer node) {
             for (idx_t i = 0; i < n16->count; i++) {
                 destroy(n16->child[i]);
             }
+            delete n16;
             break;
         }
         case NodeType48: {
@@ -641,6 +643,7 @@ void destroy(TreePointer node) {
                     destroy(n48->child[n48->childIndex[i]]);
                 }
             }
+            delete n48;
             break;
         }
         case NodeType256: {
@@ -650,13 +653,13 @@ void destroy(TreePointer node) {
                     destroy(n256->child[i]);
                 }
             }
+            delete n256;
             break;
         }
         default: {
             B_ASSERT_MSG(false, "Invalid ArtNode Type in ART");
         }
     }
-    delete node.AsPtr();
 }
 
 } // namespace Art
