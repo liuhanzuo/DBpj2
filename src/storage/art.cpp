@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <algorithm>
-#include <emmintrin.h> // SSE2 intrinsics
+// #include <emmintrin.h>
 #include <vector>
 
 namespace babydb {
@@ -139,12 +139,19 @@ TreePointer& findChild(ArtNode* n, uint8_t keyByte) {
         }
         case NodeType16: {
             Node16* node = static_cast<Node16*>(n);
-            __m128i cmp = _mm_cmpeq_epi8(_mm_set1_epi8(flipSign(keyByte)),
-                                         _mm_loadu_si128(reinterpret_cast<__m128i*>(node->key)));
-            uint32_t bitfield = _mm_movemask_epi8(cmp) & ((1 << node->count) - 1);
-            if (bitfield) {
-                return node->child[ctz(bitfield)];
+            
+            uint8_t target = flipSign(keyByte);
+            for (unsigned i = 0; i < node->count; i++) {
+                if (node->key[i] == target)
+                    return node->child[i];
             }
+            // __m128i cmp = _mm_cmpeq_epi8(_mm_set1_epi8(flipSign(keyByte)),
+            //                              _mm_loadu_si128(reinterpret_cast<__m128i*>(node->key)));
+            // uint32_t bitfield = _mm_movemask_epi8(cmp) & ((1 << node->count) - 1);
+            // if (bitfield) {
+            //     return node->child[ctz(bitfield)];
+            // }
+
             break;
         }
         case NodeType48: {
@@ -417,10 +424,16 @@ void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer
 void insertNode16(Node16* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child) {
     if (node->count < 16) {
         uint8_t keyByteFlipped = flipSign(keyByte);
-        __m128i cmp = _mm_cmplt_epi8(_mm_set1_epi8(keyByteFlipped),
-                                     _mm_loadu_si128(reinterpret_cast<__m128i*>(node->key)));
-        uint16_t bitfield = _mm_movemask_epi8(cmp) & (0xFFFF >> (16 - node->count));
-        uint32_t pos = bitfield ? ctz(bitfield) : node->count;
+
+        // __m128i cmp = _mm_cmplt_epi8(_mm_set1_epi8(keyByteFlipped),
+        //                              _mm_loadu_si128(reinterpret_cast<__m128i*>(node->key)));
+        // uint16_t bitfield = _mm_movemask_epi8(cmp) & (0xFFFF >> (16 - node->count));
+        // uint32_t pos = bitfield ? ctz(bitfield) : node->count;
+        unsigned pos = 0;
+        while (pos < node->count && node->key[pos] < keyByteFlipped) {
+            pos++;
+        }
+
         std::memmove(node->key + pos + 1, node->key + pos, node->count - pos);
         std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(data_t));
         node->key[pos] = keyByteFlipped;
