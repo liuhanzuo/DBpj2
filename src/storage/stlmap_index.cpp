@@ -22,11 +22,11 @@ void StlmapIndex::InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts) {
     index_[key] = row_id;
 };
 
-void StlmapIndex::EraseEntry(const data_t &key, idx_t row_id, idx_t start_ts, idx_t end_ts) {
+void StlmapIndex::EraseEntry(const data_t &key, idx_t row_id) {
     index_.erase(key);
 };
 
-idx_t StlmapIndex::ScanKey(const data_t &key,idx_t, idx_t) {
+idx_t StlmapIndex::LookupKey(const data_t &key, idx_t query_ts) {
     auto ite = index_.find(key);
     if (ite == index_.end()) {
         return INVALID_ID;
@@ -34,7 +34,7 @@ idx_t StlmapIndex::ScanKey(const data_t &key,idx_t, idx_t) {
     return ite->second;
 }
 
-void StlmapIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, idx_t start_ts, idx_t end_ts) {
+void StlmapIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, idx_t query_ts) {
     row_ids.clear();
     std::map<data_t, idx_t>::iterator start_ite;
     std::map<data_t, idx_t>::iterator end_ite;

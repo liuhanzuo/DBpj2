@@ -91,7 +91,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery) {
     ArtIndex index("art_sorted", table, "c0");
     auto mapping = BuildKeyMapping(table);
     std::vector<idx_t> result;
-    index.ScanRange({20000, 30000, true, true}, result, 100, 100);
+    index.ScanRange({20000, 30000, true, true}, result, 100);
     std::vector<idx_t> expected;
     for (idx_t i = 20000; i <= 30000; i++) {
         expected.push_back(mapping[i]);
@@ -107,7 +107,7 @@ TEST(ArtIndexMVCC, RandomKeys_OnlyPointQuery) {
     auto mapping = BuildKeyMapping(table);
     std::vector<data_t> testKeys = {10, 50000, 100000};
     for (data_t k : testKeys) {
-        EXPECT_EQ(index.ScanKey(k, 100, 100), mapping[k]);
+        EXPECT_EQ(index.LookupKey(k, 100), mapping[k]);
     }
 }
 
@@ -132,7 +132,7 @@ TEST(ArtIndexMVCC, RandomKeys_RangeQuery) {
             expected.push_back(mapping[key]);
     }
     std::vector<idx_t> result;
-    index.ScanRange({low, high, true, true}, result, 100, 100);
+    index.ScanRange({low, high, true, true}, result, 100);
     VerifyRangeResult(result, expected);
 }
 
@@ -145,10 +145,10 @@ TEST(ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
     index.InsertEntry(50000, 500000, 50);
     index.InsertEntry(50000, 500001, 100);
     index.InsertEntry(50000, 500002, 150);
-    EXPECT_EQ(index.ScanKey(50000, 75, 75), 500000);
-    EXPECT_EQ(index.ScanKey(50000, 100, 100), 500001);
-    EXPECT_EQ(index.ScanKey(50000, 200, 200), 500002);
-    EXPECT_EQ(index.ScanKey(50000, 40, 40), 49999);
+    EXPECT_EQ(index.LookupKey(50000, 75), 500000);
+    EXPECT_EQ(index.LookupKey(50000, 100), 500001);
+    EXPECT_EQ(index.LookupKey(50000, 200), 500002);
+    EXPECT_EQ(index.LookupKey(50000, 40), 49999);
 }
 
 
@@ -161,7 +161,7 @@ TEST(ArtIndexMVCC, SparseKeys_OnlyPointQuery) {
     auto mapping = BuildKeyMapping(table);
     for (idx_t i = 1; i <= 100000; i += 10000) {
         data_t key = static_cast<data_t>(i) * 10000;
-        EXPECT_EQ(index.ScanKey(key, 100, 100), mapping[key]);
+        EXPECT_EQ(index.LookupKey(key, 100), mapping[key]);
     }
 }
 
@@ -172,7 +172,7 @@ TEST(ArtIndexMVCC, SparseKeys_RangeQuery) {
     ArtIndex index("art_sparse", table, "c0");
     auto mapping = BuildKeyMapping(table);
     std::vector<idx_t> result;
-    index.ScanRange({100000, 500000, true, true}, result, 100, 100);
+    index.ScanRange({100000, 500000, true, true}, result, 100);
     std::vector<idx_t> expected;
     {
         auto read_guard = table.GetReadTableGuard();
@@ -206,7 +206,7 @@ TEST(ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
     for (idx_t i = 0; i < 100000; i++) {
         idx_t idx = dist(rng);
         data_t key = allKeys[idx];
-        EXPECT_EQ(index.ScanKey(key, 100, 100), mapping[key]);
+        EXPECT_EQ(index.LookupKey(key, 100), mapping[key]);
     }
 }
 
@@ -234,13 +234,13 @@ TEST(ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
             ArtIndex tempIndex("art_temp", table, "c0");
             auto mapping = BuildKeyMapping(table);
             idx_t cur = std::min(start + 1000 - 1, count - 1);
-            EXPECT_EQ(tempIndex.ScanKey(keys[cur], 100, 100), mapping[keys[cur]]);
+            EXPECT_EQ(tempIndex.LookupKey(keys[cur], 100), mapping[keys[cur]]);
         }
     }
     ArtIndex index("art_random_alt", table, "c0");
     auto mapping = BuildKeyMapping(table);
     for (idx_t i = 0; i < count; i += 5000) {
-        EXPECT_EQ(index.ScanKey(keys[i], 100, 100), mapping[keys[i]]);
+        EXPECT_EQ(index.LookupKey(keys[i], 100), mapping[keys[i]]);
     }
 }
 
@@ -261,7 +261,7 @@ TEST(ArtIndexMVCC, RandomKeys_BulkInsertThenBulkQuery) {
     }
     std::sort(allKeys.begin(), allKeys.end());
     for (idx_t i = 0; i < allKeys.size(); i += 5000) {
-         EXPECT_EQ(index.ScanKey(allKeys[i], 100, 100), mapping[allKeys[i]]);
+         EXPECT_EQ(index.LookupKey(allKeys[i], 100), mapping[allKeys[i]]);
     }
 }
 
@@ -274,7 +274,7 @@ TEST(ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
     auto mapping = BuildKeyMapping(table);
     for (idx_t i = 1; i <= 100000; i += 2000) {
         data_t key = static_cast<data_t>(i) * 10000;
-        EXPECT_EQ(index.ScanKey(key, 100, 100), mapping[key]);
+        EXPECT_EQ(index.LookupKey(key, 100), mapping[key]);
     }
 }
 
@@ -286,7 +286,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
     auto mapping = BuildKeyMapping(table);
     
     std::vector<idx_t> result1;
-    index.ScanRange({10000, 20000, true, true}, result1, 100, 100);
+    index.ScanRange({10000, 20000, true, true}, result1, 100);
     std::vector<idx_t> expected1;
     for (idx_t i = 10000; i <= 20000; i++) {
          expected1.push_back(mapping[i]);
@@ -294,7 +294,7 @@ TEST(ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
     VerifyRangeResult(result1, expected1);
 
     std::vector<idx_t> result2;
-    index.ScanRange({50000, 60000, true, true}, result2, 100, 100);
+    index.ScanRange({50000, 60000, true, true}, result2, 100);
     std::vector<idx_t> expected2;
     for (idx_t i = 50000; i <= 60000; i++) {
          expected2.push_back(mapping[i]);
@@ -325,13 +325,13 @@ TEST(ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
   
     for (idx_t key = 200; key <= 600; key++) {
         idx_t expected = key * 1000000 + (queryTs - 100);
-        EXPECT_EQ(index.ScanKey(key, queryTs, queryTs), expected)
+        EXPECT_EQ(index.LookupKey(key, queryTs), expected)
             << "Key " << key << " expected version " << expected;
     }
     
 
     std::vector<idx_t> result;
-    index.ScanRange({200, 600, true, true}, result, queryTs, queryTs);
+    index.ScanRange({200, 600, true, true}, result, queryTs);
     
     for (idx_t key = 200; key <= 600; key++) {
         idx_t expected = key * 1000000 + (queryTs - 100);

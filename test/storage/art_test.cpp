@@ -16,7 +16,7 @@ TEST(ArtIndexTest, BasicTest) {
     ArtIndex index("art_index", table, "c0");
 
     for (idx_t i = 0; i < N; i += 100) {
-        EXPECT_EQ(index.ScanKey(i), i);
+        EXPECT_EQ(index.LookupKey(i), i);
     }
 }
 

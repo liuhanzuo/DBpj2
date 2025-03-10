@@ -75,7 +75,7 @@ TEST(TableOperatorTest, InsertAndScanBasicTest) {
     std::vector<Tuple> results_index;
     auto &index = exec_ctx.catalog_.FetchIndex("index0_0");
     for (data_t key = 0; key <= 5; key++) {
-        auto row_id = index.ScanKey(key);
+        auto row_id = index.LookupKey(key);
         if (row_id != INVALID_ID) {
             auto &row = read_guard.Rows()[row_id];
             if (!row.tuple_meta_.is_deleted_) {
@@ -187,7 +187,7 @@ TEST(TableOperatorTest, UpdateScanBasicTest) {
     auto read_guard = table.GetReadTableGuard();
     auto &index = exec_ctx.catalog_.FetchIndex("index0_0");
     for (data_t key = 0; key <= 6; key++) {
-        auto row_id = index.ScanKey(key);
+        auto row_id = index.LookupKey(key);
         if (row_id != INVALID_ID) {
             auto &row = read_guard.Rows()[row_id];
             if (!row.tuple_meta_.is_deleted_) {

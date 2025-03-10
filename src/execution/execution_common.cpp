@@ -11,7 +11,7 @@ void DeleteRow(WriteTableGuard &write_guard, idx_t row_id) {
 }
 
 void InsertRowWithIndex(WriteTableGuard &write_guard, Tuple &&tuple, Index *index, const data_t &key) {
-    auto row_id = index->ScanKey(key);
+    auto row_id = index->LookupKey(key);
     // Key is existed, but deleted
     if (row_id != INVALID_ID) {
         auto &[data, meta] = write_guard.Rows()[row_id];

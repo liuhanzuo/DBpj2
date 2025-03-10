@@ -26,11 +26,11 @@ TEST(StlmapIndexTest, BasicTest) {
 
     EXPECT_ANY_THROW(index.InsertEntry(2, 2));
 
-    EXPECT_EQ(index.ScanKey(0), 0);
+    EXPECT_EQ(index.LookupKey(0), 0);
 
     index.EraseEntry(0, 0);
 
-    EXPECT_EQ(index.ScanKey(0), INVALID_ID);
+    EXPECT_EQ(index.LookupKey(0), INVALID_ID);
 
     index.ScanRange({0, 1, true, true}, result);
     EXPECT_EQ(result, (std::vector<idx_t>{}));

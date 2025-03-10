@@ -691,7 +691,7 @@ ArtIndex::~ArtIndex() {}
 
 void ArtIndex::InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts) {
     // P1 TODO: Add ts support
-    if (ScanKey(key) != INVALID_ID) {
+    if (LookupKey(key) != INVALID_ID) {
         throw std::logic_error("duplicated key");
     }
     key_t keyBytes;
@@ -699,15 +699,15 @@ void ArtIndex::InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts) {
     insert(art_tree_->root_, &art_tree_->root_, keyBytes, 0, key);
 }
 
-void ArtIndex::EraseEntry(const data_t &key, idx_t row_id, idx_t start_ts, idx_t end_ts) {
+void ArtIndex::EraseEntry(const data_t &key, idx_t row_id) {
     // P1 TODO: Add ts support
     key_t keyBytes;
     loadKey(key, keyBytes);
     erase(art_tree_->root_, &art_tree_->root_, keyBytes, 0);
 }
 
-idx_t ArtIndex::ScanKey(const data_t &key, idx_t start_ts, idx_t end_ts) {
-    // P1 TODO: This version returns the original key, change it to return the rowid
+idx_t ArtIndex::LookupKey(const data_t &key, idx_t query_ts) {
+    // P1 TODO: This version returns the original key, change it to return the rowid & Add ts support
     key_t keyBytes;
     loadKey(key, keyBytes);
     TreePointer leaf = lookup(art_tree_->root_, keyBytes, 0);
@@ -717,8 +717,8 @@ idx_t ArtIndex::ScanKey(const data_t &key, idx_t start_ts, idx_t end_ts) {
     return static_cast<idx_t>(leaf.AsData());
 }
 
-void ArtIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, idx_t start_ts, idx_t end_ts) {
-    // P1 TODO: Implement rangeScan & Add ts support
+void ArtIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, idx_t query_ts) {
+    // P1 TODO: Implement rangeScan & Add ts support (you can change the parameters for rangeScan)
     row_ids.clear();
     key_t lowerKey, upperKey;
     loadKey(range.start, lowerKey);
