@@ -4,6 +4,8 @@ This is the codebase for Database System course, IIIS, Tsinghua University in 20
 
 You should start from the branch `main`, and when each project posted, this branch will be updated. So before you start your next project, confirm your code is up to date.
 
+**Important Notice: You should not make your code public anywhere.**
+
 ### Cloning this Repository
 
 1. Go [here](https://github.com/new) to create a new empty (without README.md) repository under your account. Pick a name (e.g. `babydb-private`) and select **Private** for the repository visibility level.
@@ -59,7 +61,7 @@ We suggest you working on your projects in separate branches. If you do not unde
 
 ### Build
 
-**We recommend you run this code on Linux.**
+**We recommend you run this code on Linux.** If you're using Windows, MacOS or other systems, and fails to build BabyDB, you should first try to install a Linux virtual machine, or WSL2 on Windows. If you still have problems, find TAs' help.
 
 Before start building, make sure you have `make`, `cmake` and C++ compiler (`g++` or `clang++`) on your machine and they are added into your environment path, which means you can directly use them on your shell.
 
@@ -100,7 +102,7 @@ or get more details:
 $ make check-tests-details
 ```
 
-You may fail on some tests. If their name are all start with `Project`, don't worry, they will be passed if you correctly complete your project. But if you fail on other tests, please check your steps, and contact with the TA.
+You may fail on some tests. If their name are all start with `Project`, don't worry, they will be passed if you correctly complete your project. But if you fail on other tests, please first check your steps, and then contact with the TA.
 
 ### Project 1
 
