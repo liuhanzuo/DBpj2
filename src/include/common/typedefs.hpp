@@ -10,8 +10,8 @@
 namespace babydb {
 
 //! babydb's only data type
-typedef int64_t data_t;
-const data_t DATA_MIN = INT64_MIN;
+typedef uint64_t data_t;
+const data_t DATA_MIN = 0;
 const data_t DATA_MAX = INT64_MAX;
 //! babydb's index type
 typedef uint64_t idx_t;

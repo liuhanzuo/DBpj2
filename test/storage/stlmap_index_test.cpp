@@ -21,9 +21,8 @@ TEST(StlmapIndexTest, BasicTest) {
     EXPECT_EQ(result, (std::vector<idx_t>{0, 1}));
     index.ScanRange({0, 2, false, false}, result);
     EXPECT_EQ(result, (std::vector<idx_t>{}));
-    index.ScanRange({-1, 1, true, true}, result);
+    index.ScanRange({0, 1, true, true}, result);
     EXPECT_EQ(result, (std::vector<idx_t>{0}));
-    
 
     EXPECT_ANY_THROW(index.InsertEntry(2, 2));
 
@@ -33,7 +32,7 @@ TEST(StlmapIndexTest, BasicTest) {
 
     EXPECT_EQ(index.ScanKey(0), INVALID_ID);
 
-    index.ScanRange({-1, 1, true, true}, result);
+    index.ScanRange({0, 1, true, true}, result);
     EXPECT_EQ(result, (std::vector<idx_t>{}));
 }
 
