@@ -15,7 +15,7 @@ public:
 
     void InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts = 0) override;
 
-    void EraseEntry(const data_t &key, idx_t row_id) override;
+    void EraseEntry(const data_t &key) override;
 
     idx_t LookupKey(const data_t &key, idx_t query_ts = 0) override;
 

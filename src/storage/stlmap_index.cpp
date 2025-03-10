@@ -22,7 +22,7 @@ void StlmapIndex::InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts) {
     index_[key] = row_id;
 };
 
-void StlmapIndex::EraseEntry(const data_t &key, idx_t row_id) {
+void StlmapIndex::EraseEntry(const data_t &key) {
     index_.erase(key);
 };
 

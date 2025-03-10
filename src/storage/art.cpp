@@ -711,7 +711,7 @@ void ArtIndex::InsertEntry(const data_t &key, idx_t row_id, idx_t start_ts) {
     insert(art_tree_->root_, &art_tree_->root_, keyBytes, 0, key);
 }
 
-void ArtIndex::EraseEntry(const data_t &key, idx_t row_id) {
+void ArtIndex::EraseEntry(const data_t &key) {
     // P1 TODO: Add ts support
     key_t keyBytes;
     loadKey(key, keyBytes);

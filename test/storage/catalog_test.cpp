@@ -14,7 +14,7 @@ public:
 
 private:
     void InsertEntry(const data_t&, idx_t, idx_t) override {};
-    void EraseEntry(const data_t&, idx_t) override {};
+    void EraseEntry(const data_t&) override {};
     idx_t LookupKey(const data_t&, idx_t) override { return INVALID_ID; };
 };
 

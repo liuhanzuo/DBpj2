@@ -28,7 +28,7 @@ TEST(StlmapIndexTest, BasicTest) {
 
     EXPECT_EQ(index.LookupKey(0), 0);
 
-    index.EraseEntry(0, 0);
+    index.EraseEntry(0);
 
     EXPECT_EQ(index.LookupKey(0), INVALID_ID);
 
