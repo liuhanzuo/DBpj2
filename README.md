@@ -108,6 +108,8 @@ You may fail on some tests. If their name are all start with `Project`, don't wo
 
 You should only modify `src/storage/art.cpp` and `src/include/storage/art.hpp`, and pass all `Project1ArtIndexMVCC` tests if you complete the whole project.
 
+At the start of `src/storage/art.cpp`, there are some tips.
+
 To submit, run the following code to generate the submission file (make sure `zip` is in your environment variable):
 
 ```

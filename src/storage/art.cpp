@@ -14,6 +14,28 @@
 
 namespace babydb {
 
+/**
+ * TIPS
+ *
+ * Node Structure
+ * Art have 4 different node types, the number in the type is the maximum possible sons.
+ * Art partition the uint64 to 8 bytes, so each node have at most 256 children.
+ * Each type use different way to manage and retrieve children.
+ * For type 4 and 16, they store children and values in increasing order, and when retrieve, sequentially scan them.
+ * Note that for type 16, Art will use SIMD (SSE2), we provide codes with same effects.
+ * For type 48, it stores children in a prefix of an array (in any order), and use 256 byte as the array index,
+ * which means child[childIndex[i]] is the child i, if exists.
+ * For type 256, it stores children directly in an array, so child[i] is the child[i].
+ * Notice that there is a common structure in the node: prefix.
+ * It means, all keys in the subtree have the same prefix, so we store it in the node and just skip it.
+ * During keys are inserted and erased, the longest common prefix on each node are changed. Art maintains carefully.
+ * When retrieving keys, it cannot be ignored. Be carefully.
+ *
+ * TreePointer
+ * It stores a pointer to a node or a data_t type (on leaf), distinguished by the last bit.
+ * It's not elegant and hard to understand or use, but it is efficient.
+ */
+
 namespace Art {
 
 enum ArtNodeType : uint8_t {
