@@ -63,7 +63,7 @@ We suggest you working on your projects in separate branches. If you do not unde
 
 **We recommend you run this code on Linux.** If you're using Windows, MacOS or other systems, and fails to build BabyDB, you should first try to install a Linux virtual machine, or WSL2 on Windows. If you still have problems, find TAs' help.
 
-Before start building, make sure you have `make`, `cmake` and C++ compiler (`g++` or `clang++`) on your machine and they are added into your environment path, which means you can directly use them on your shell.
+Before start building, make sure you have `make`, `cmake` and C++ compiler (`g++` or `clang++`) on your machine and they are added into your environment variable, which means you can directly use them on your shell.
 
 Then run the following commands to build the system:
 
@@ -107,3 +107,9 @@ You may fail on some tests. If their name are all start with `Project`, don't wo
 ### Project 1
 
 You should only modify `src/storage/art.cpp` and `src/include/storage/art.hpp`, and pass all `Project1ArtIndexMVCC` tests if you complete the whole project.
+
+To submit, run the following code to generate the submission file (make sure `zip` is in your environment variable):
+
+```
+make submit-p1
+```

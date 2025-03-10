@@ -63,3 +63,14 @@ include_directories(BEFORE src)
 add_subdirectory(third_party)
 add_subdirectory(src)
 add_subdirectory(test)
+
+set(P1_FILES
+        "src/storage/art.cpp"
+        "src/include/storage/art.hpp"
+)
+
+add_custom_target(submit-p1
+        zip project1-submission.zip
+        ${P1_FILES}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
