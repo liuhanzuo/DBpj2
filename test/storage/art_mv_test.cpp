@@ -112,11 +112,11 @@ TEST(Project1ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
     ArtIndex index("art_sorted_multi_range", table, "c0");
     auto mapping = BuildKeyMapping(table);
 
-    for (idx_t round = 0; round < 1000; round++) {
+    for (idx_t round = 0; round < 10000; round++) {
         std::vector<idx_t> result;
-        index.ScanRange({round * 100, round * 100 + 10, true, true}, result);
+        index.ScanRange({round * 10, round * 10 + 5, true, true}, result);
         std::vector<idx_t> expected;
-        for (idx_t i = round * 100; i <= round * 100 + 10; i++) {
+        for (idx_t i = round * 10; i <= round * 10 + 5; i++) {
             expected.push_back(mapping[i]);
         }
         VerifyRangeResult(result, expected);
@@ -160,23 +160,6 @@ TEST(Project1ArtIndexMVCC, RandomKeys_RangeQuery) {
     VerifyRangeResult(result, expected);
 }
 
-TEST(Project1ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
-    Schema schema{"c0", "c1"};
-    Table table("dense_updates_point", schema);
-    BuildSortedTable(table, 100000);
-    ArtIndex index("art_dense", table, "c0");
-   
-    index.InsertEntry(50000, 500000, 50);
-    index.InsertEntry(50000, 500001, 100);
-    index.InsertEntry(50000, 500002, 150);
-    EXPECT_EQ(index.LookupKey(50000, 75), 500000);
-    EXPECT_EQ(index.LookupKey(50000, 100), 500001);
-    EXPECT_EQ(index.LookupKey(50000, 200), 500002);
-    EXPECT_EQ(index.LookupKey(50000, 40), 50000);
-}
-
-
-
 TEST(Project1ArtIndexMVCC, SparseKeys_OnlyPointQuery) {
     Schema schema{"c0", "c1"};
     Table table("sparse_only_point", schema);
@@ -209,8 +192,6 @@ TEST(Project1ArtIndexMVCC, SparseKeys_RangeQuery) {
     VerifyRangeResult(result, expected);
 }
 
-
-
 TEST(Project1ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
     Schema schema{"c0", "c1"};
     Table table("mixed_high_query", schema);
@@ -233,8 +214,6 @@ TEST(Project1ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
         EXPECT_EQ(index.LookupKey(key), mapping[key]);
     }
 }
-
-
 
 TEST(Project1ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
     Schema schema{"c0", "c1"};
@@ -268,9 +247,6 @@ TEST(Project1ArtIndexMVCC, RandomKeys_AlternateInsertQuery) {
     }
 }
 
-
-
-
 TEST(Project1ArtIndexMVCC, RandomKeys_BulkInsertThenBulkQuery) {
     Schema schema{"c0", "c1"};
     Table table("random_bulk", schema);
@@ -289,7 +265,6 @@ TEST(Project1ArtIndexMVCC, RandomKeys_BulkInsertThenBulkQuery) {
     }
 }
 
-
 TEST(Project1ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
     Schema schema{"c0", "c1"};
     Table table("sparse_bulk", schema);
@@ -300,6 +275,21 @@ TEST(Project1ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
         data_t key = static_cast<data_t>(i) * 10000;
         EXPECT_EQ(index.LookupKey(key), mapping[key]);
     }
+}
+
+TEST(Project1ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
+    Schema schema{"c0", "c1"};
+    Table table("dense_updates_point", schema);
+    BuildSortedTable(table, 100000);
+    ArtIndex index("art_dense", table, "c0");
+   
+    index.InsertEntry(50000, 500000, 50);
+    index.InsertEntry(50000, 500001, 100);
+    index.InsertEntry(50000, 500002, 150);
+    EXPECT_EQ(index.LookupKey(50000, 75), 500000);
+    EXPECT_EQ(index.LookupKey(50000, 100), 500001);
+    EXPECT_EQ(index.LookupKey(50000, 200), 500002);
+    EXPECT_EQ(index.LookupKey(50000, 40), 50000);
 }
 
 TEST(Project1ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
@@ -322,8 +312,7 @@ TEST(Project1ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
 
     for (idx_t key = 200; key <= 600; key++) {
         idx_t expected = key * 1000000 + (queryTs - 100);
-        EXPECT_EQ(index.LookupKey(key, queryTs), expected)
-            << "Key " << key << " expected version " << expected;
+        EXPECT_EQ(index.LookupKey(key, queryTs), expected);
     }
 
 
