@@ -297,7 +297,7 @@ TEST(Project1ArtIndexMVCC, LongVersionChain_SequentialTs_RangeQuery) {
 
     BuildSortedTable(table, count);
     ArtIndex index("art_long_chain_all", table, "c0");
-    
+
     const idx_t numUpdates = 100000;
 
     for (idx_t key = 1; key < 10; key++) {
@@ -309,10 +309,77 @@ TEST(Project1ArtIndexMVCC, LongVersionChain_SequentialTs_RangeQuery) {
     idx_t queryTs = 100 + numUpdates / 2;
 
     for (idx_t key = 1; key < 10; key++) {
-        idx_t expected = key * 1000000 + (queryTs - 100);
+        idx_t expected_special_key = key * 1000000 + (queryTs - 100);
+        std::vector<idx_t> expected_key_list{expected_special_key};
+        for (int delta = -2; delta <= 2; delta++) {
+            if (delta != 0) {
+                expected_key_list.push_back(key * 10000 + delta);
+            }
+        }
         std::vector<idx_t> result;
-        index.ScanRange({key * 10000, key * 10000}, result, queryTs);
-        EXPECT_EQ(result, std::vector<idx_t>{expected});
+        index.ScanRange({key * 10000 - 2, key * 10000 + 2}, result, queryTs);
+        VerifyRangeResult(result, expected_key_list);
+    }
+
+    const int seed = 42395;
+    std::mt19937 rnd(seed);
+    std::uniform_int_distribution<idx_t> start_dist(0, count - 10);
+    std::uniform_int_distribution<idx_t> len_dist(1, 8);
+    for (idx_t round = 0; round < numUpdates; round++) {
+        idx_t start, end;
+        do {
+            start = start_dist(rnd);
+            end = start + len_dist(rnd);
+        } while (start / 10000 != end / 10000);
+        std::vector<idx_t> result;
+        std::vector<idx_t> expected;
+        index.ScanRange({start, end, false, true}, result);
+        for (idx_t i = start + 1; i <= end; i++) {
+            expected.push_back(i);
+        }
+        VerifyRangeResult(result, expected);
+    }
+}
+
+TEST(Project1ArtIndexMVCC, LongVersionChain_RandomTs_RangeQuery) {
+    Schema schema{"c0", "c1"};
+    Table table("long_version_chain_all", schema);
+    const idx_t count = 100000;
+    const idx_t special_count = 10;
+
+    BuildSortedTable(table, count);
+    ArtIndex index("art_long_chain_all", table, "c0");
+
+    const idx_t numUpdates = 100000;
+
+    std::vector<idx_t> updates;
+    for (idx_t i = 0; i < numUpdates; i++) {
+        updates.push_back(i);
+    }
+    const int seed = 45346;
+    std::mt19937 rnd(seed);
+    std::shuffle(updates.begin(), updates.end(), rnd);
+    for (auto i : updates) {
+        for (idx_t key = 1; key < special_count; key++) {
+            index.InsertEntry(key * 10000, key * 1000000 + i, 100 + i);
+        }
+    }
+
+    std::shuffle(updates.begin(), updates.end(), rnd);
+
+    std::uniform_int_distribution<idx_t> key_dist(1, special_count - 1);
+    for (auto queryTs : updates) {
+        auto key = key_dist(rnd);
+        idx_t expected_special = key * 1000000 + queryTs;
+        std::vector<idx_t> expected_key_list{expected_special};
+        std::vector<idx_t> result;
+        for (int delta = -2; delta <= 2; delta++) {
+            if (delta != 0) {
+                expected_key_list.push_back(key * 10000 + delta);
+            }
+        }
+        index.ScanRange({key * 10000 - 2, key * 10000 + 2}, result, 100 + queryTs);
+        VerifyRangeResult(result, expected_key_list);
     }
 }
 

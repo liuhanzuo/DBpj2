@@ -15,7 +15,7 @@ public:
                       const std::string &group_by, const std::string &aggregate_key);
 
     ~AggregateOperator() override = default;
-    
+
     OperatorState Next(Chunk &output_chunk) override;
 
     void SelfInit() override;
