@@ -244,7 +244,7 @@ TEST(Project1ArtIndexMVCC, LongVersionChain_SequentialTs) {
     const idx_t numUpdates = 100000;
 
     for (idx_t key = 1; key < count; key++) {
-        for (idx_t i = 0; i < numUpdates; i++) {
+        for (idx_t i = numUpdates; i-- != 0; ) {
             index.InsertEntry(key, key * 1000000 + i, 100 + i);
         }
     }
@@ -301,7 +301,7 @@ TEST(Project1ArtIndexMVCC, LongVersionChain_SequentialTs_RangeQuery) {
     const idx_t numUpdates = 100000;
 
     for (idx_t key = 1; key < 10; key++) {
-        for (idx_t i = 0; i < numUpdates; i++) {
+        for (idx_t i = numUpdates; i-- != 0; ) {
             index.InsertEntry(key * 10000, key * 1000000 + i, 100 + i);
         }
     }
