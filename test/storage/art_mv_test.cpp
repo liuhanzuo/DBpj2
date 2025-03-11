@@ -178,13 +178,13 @@ TEST(Project1ArtIndexMVCC, SparseKeys_RangeQuery) {
     ArtIndex index("art_sparse", table, "c0");
     auto mapping = BuildKeyMapping(table);
     std::vector<idx_t> result;
-    index.ScanRange({100000, 500000, true, true}, result);
+    index.ScanRange({10000000, 50000000, true, true}, result);
     std::vector<idx_t> expected;
     {
         auto read_guard = table.GetReadTableGuard();
         for (const auto &row : read_guard.Rows()) {
             data_t k = row.tuple_.KeyFromTuple(table.schema_.GetKeyAttr("c0"));
-            if (k >= 100000 && k <= 500000)
+            if (k >= 10000000 && k <= 50000000)
                 expected.push_back(mapping[k]);
         }
     }
@@ -226,8 +226,8 @@ TEST(Project1ArtIndexMVCC, MixedReadWrite_HighQueryRatio) {
     for (idx_t i = 0; i < 100000; i++) {
         idx_t idx = dist(rng);
         data_t key = allKeys[idx];
-        EXPECT_EQ(index.LookupKey(key), mapping[key]);
-        index.InsertEntry(key, cur_rowid);
+        EXPECT_EQ(index.LookupKey(key, cur_rowid), mapping[key]);
+        index.InsertEntry(key, cur_rowid, cur_rowid);
         mapping[key] = cur_rowid;
         cur_rowid++;
     }

@@ -131,8 +131,8 @@ For each test, you'll get the whole score if you pass the test within reasonable
 5. SparseKeys_OnlyPointQuery: No addition requirement.
 6. SparseKeys_RangeQuery: Require task 1.
 7. DenseKeys_WithUpdates_PointQuery: Require task 2.
-8. MixedReadWrite_HighQueryRatio: Require task 1 & 2.
+8. MixedReadWrite_HighQueryRatio: Require task 2.
 9. LongVersionChain_SequentialTs: Require task 2. Note that this test have a large number of version link update.
 10. LongVersionChain_RandomTs: Require task 3. Note that this test have a large number of version link update.
-11. LongVersionChain_SequentialTs_RangeQuery: Require task 1 & 2. Note that this test have a large number of version link update and range query.
-12. LongVersionChain_RandomTs_RangeQuery: Require ALL task. Note that this test have a large number of version link update and range query.
+11. LongVersionChain_SequentialTs_RangeQuery: Require task 1 & 2. Note that this test have a large number of version link updates and range queries.
+12. LongVersionChain_RandomTs_RangeQuery: Require ALL task. Note that this test have a large number of version link updates and range queries.
