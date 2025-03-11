@@ -324,13 +324,11 @@ TreePointer lookup(TreePointer node, key_t key, uint32_t depth) {
             if (!skippedPrefix && depth == ART_KEY_LENGTH) {
                 return node;
             }
-            if (depth != ART_KEY_LENGTH) {
-                key_t leafKey;
-                loadKey(node.AsData(), leafKey);
-                for (idx_t i = (skippedPrefix ? 0 : depth); i < ART_KEY_LENGTH; i++) {
-                    if (leafKey[i] != key[i]) {
-                        return nullptr;
-                    }
+            key_t leafKey;
+            loadKey(node.AsData(), leafKey);
+            for (idx_t i = (skippedPrefix ? 0 : depth); i < ART_KEY_LENGTH; i++) {
+                if (leafKey[i] != key[i]) {
+                    return nullptr;
                 }
             }
             return node;
@@ -440,6 +438,7 @@ void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer
         Node16* newNode = new Node16();
         *nodeRef = newNode;
         newNode->count = 4;
+        newNode->prefixLength = node->prefixLength;
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, MAX_PREFIX_LENGTH));
         for (idx_t i = 0; i < 4; i++)
             newNode->key[i] = flipSign(node->key[i]);
@@ -460,7 +459,7 @@ void insertNode16(Node16* node, TreePointer* nodeRef, uint8_t keyByte, TreePoint
         uint32_t pos = bitfield ? ctz(bitfield) : node->count;
 #else // __SSE2__ == 1
         unsigned pos = 0;
-        while (pos < node->count && node->key[pos] < keyByteFlipped) {
+        while (pos < node->count && flipSign(node->key[pos]) < keyByte) {
             pos++;
         }
 #endif // __SSE2__ == 1
@@ -477,6 +476,7 @@ void insertNode16(Node16* node, TreePointer* nodeRef, uint8_t keyByte, TreePoint
         for (idx_t i = 0; i < node->count; i++) {
             newNode->childIndex[flipSign(node->key[i])] = i;
         }
+        newNode->prefixLength = node->prefixLength;
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, MAX_PREFIX_LENGTH));
         newNode->count = node->count;
         delete node;
@@ -501,6 +501,7 @@ void insertNode48(Node48* node, TreePointer* nodeRef, uint8_t keyByte, TreePoint
             }
         }
         newNode->count = node->count;
+        newNode->prefixLength = node->prefixLength;
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, MAX_PREFIX_LENGTH));
         *nodeRef = newNode;
         delete node;

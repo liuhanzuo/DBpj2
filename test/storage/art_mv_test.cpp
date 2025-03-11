@@ -121,7 +121,6 @@ TEST(Project1ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
         }
         VerifyRangeResult(result, expected);
     }
-
 }
 
 TEST(Project1ArtIndexMVCC, RandomKeys_OnlyPointQuery) {
