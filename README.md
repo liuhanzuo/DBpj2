@@ -108,6 +108,8 @@ You may fail on some tests. If their name are all start with `Project`, don't wo
 
 You should only modify `src/storage/art.cpp` and `src/include/storage/art.hpp`, and pass all `Project1ArtIndexMVCC` tests if you complete the whole project.
 
+**Notice:** The basic version does not store row id in the index, but in the final version, `LookupKey` and `ScanRange` should returns row id instead of key itself. You can choose a reasonable point to implement it. (Suggestion: When implementing the version link.)
+
 At the start of `src/storage/art.cpp`, there are some tips.
 
 To submit, run the following code to generate the submission file (make sure `zip` is in your environment variable):
@@ -115,3 +117,22 @@ To submit, run the following code to generate the submission file (make sure `zi
 ```
 make submit-p1
 ```
+
+Here's some information about tests:
+
+For tests start with `SortedKeys`, the key is equal to the row id, so you can pass it without storing row id.
+
+For each test, you'll get the whole score if you pass the test within reasonable time.
+
+1. SortedKeys_RangeQuery: Require task 1.
+2. SortedKeys_RangeQuery_MultipleRanges: Require task 1. Note that this test have a large number of range queries with a small range.
+3. RandomKeys_OnlyPointQuery: No addition requirement. (Only require returning correct row id.)
+4. RandomKeys_RangeQuery: Require task 1.
+5. SparseKeys_OnlyPointQuery: No addition requirement.
+6. SparseKeys_RangeQuery: Require task 1.
+7. DenseKeys_WithUpdates_PointQuery: Require task 2.
+8. MixedReadWrite_HighQueryRatio: Require task 1 & 2.
+9. LongVersionChain_SequentialTs: Require task 2. Note that this test have a large number of version link update.
+10. LongVersionChain_RandomTs: Require task 3. Note that this test have a large number of version link update.
+11. LongVersionChain_SequentialTs_RangeQuery: Require task 1 & 2. Note that this test have a large number of version link update and range query.
+12. LongVersionChain_RandomTs_RangeQuery: Require ALL task. Note that this test have a large number of version link update and range query.
