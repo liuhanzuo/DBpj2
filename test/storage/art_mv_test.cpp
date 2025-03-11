@@ -21,9 +21,8 @@ const idx_t INVALID_ID = std::numeric_limits<idx_t>::max();
 
 void BuildSortedTable(Table &table, idx_t count) {
     auto write_guard = table.GetWriteTableGuard();
-    for (idx_t i = 1; i <= count; i++) {
-        // value is i-1
-        write_guard.Rows().push_back({Tuple{static_cast<data_t>(i), static_cast<data_t>(i - 1)}, TupleMeta()});
+    for (idx_t i = 0; i < count; i++) {
+        write_guard.Rows().push_back({Tuple{static_cast<data_t>(i), static_cast<data_t>(i)}, TupleMeta()});
     }
     write_guard.Drop();
 }
@@ -89,13 +88,40 @@ TEST(Project1ArtIndexMVCC, SortedKeys_RangeQuery) {
     BuildSortedTable(table, 100000);
     ArtIndex index("art_sorted", table, "c0");
     auto mapping = BuildKeyMapping(table);
-    std::vector<idx_t> result;
-    index.ScanRange({20000, 30000, true, true}, result);
-    std::vector<idx_t> expected;
+    std::vector<idx_t> result1;
+    index.ScanRange({20000, 30000, true, true}, result1);
+    std::vector<idx_t> expected1;
     for (idx_t i = 20000; i <= 30000; i++) {
-        expected.push_back(mapping[i]);
+        expected1.push_back(mapping[i]);
     }
-    VerifyRangeResult(result, expected);
+    VerifyRangeResult(result1, expected1);
+
+    std::vector<idx_t> result2;
+    index.ScanRange({50000, 60000, false, false}, result2);
+    std::vector<idx_t> expected2;
+    for (idx_t i = 50000 + 1; i < 60000; i++) {
+        expected2.push_back(mapping[i]);
+    }
+    VerifyRangeResult(result2, expected2);
+}
+
+TEST(Project1ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
+    Schema schema{"c0", "c1"};
+    Table table("sorted_multi_range", schema);
+    BuildSortedTable(table, 100000);
+    ArtIndex index("art_sorted_multi_range", table, "c0");
+    auto mapping = BuildKeyMapping(table);
+
+    for (idx_t round = 0; round < 1000; round++) {
+        std::vector<idx_t> result;
+        index.ScanRange({round * 100, round * 100 + 10, true, true}, result);
+        std::vector<idx_t> expected;
+        for (idx_t i = round * 100; i <= round * 100 + 10; i++) {
+            expected.push_back(mapping[i]);
+        }
+        VerifyRangeResult(result, expected);
+    }
+
 }
 
 TEST(Project1ArtIndexMVCC, RandomKeys_OnlyPointQuery) {
@@ -147,7 +173,7 @@ TEST(Project1ArtIndexMVCC, DenseKeys_WithUpdates_PointQuery) {
     EXPECT_EQ(index.LookupKey(50000, 75), 500000);
     EXPECT_EQ(index.LookupKey(50000, 100), 500001);
     EXPECT_EQ(index.LookupKey(50000, 200), 500002);
-    EXPECT_EQ(index.LookupKey(50000, 40), 49999);
+    EXPECT_EQ(index.LookupKey(50000, 40), 50000);
 }
 
 
@@ -275,30 +301,6 @@ TEST(Project1ArtIndexMVCC, SparseKeys_BulkInsertThenBulkQuery) {
         data_t key = static_cast<data_t>(i) * 10000;
         EXPECT_EQ(index.LookupKey(key), mapping[key]);
     }
-}
-
-TEST(Project1ArtIndexMVCC, SortedKeys_RangeQuery_MultipleRanges) {
-    Schema schema{"c0", "c1"};
-    Table table("sorted_multi_range", schema);
-    BuildSortedTable(table, 100000);
-    ArtIndex index("art_sorted_multi_range", table, "c0");
-    auto mapping = BuildKeyMapping(table);
-    
-    std::vector<idx_t> result1;
-    index.ScanRange({10000, 20000, true, true}, result1);
-    std::vector<idx_t> expected1;
-    for (idx_t i = 10000; i <= 20000; i++) {
-         expected1.push_back(mapping[i]);
-    }
-    VerifyRangeResult(result1, expected1);
-
-    std::vector<idx_t> result2;
-    index.ScanRange({50000, 60000, true, true}, result2);
-    std::vector<idx_t> expected2;
-    for (idx_t i = 50000; i <= 60000; i++) {
-         expected2.push_back(mapping[i]);
-    }
-    VerifyRangeResult(result2, expected2);
 }
 
 TEST(Project1ArtIndexMVCC, LongVersionChain_RangeQuery_AllKeys) {
