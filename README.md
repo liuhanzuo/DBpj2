@@ -118,6 +118,8 @@ To submit, run the following code to generate the submission file (make sure `zi
 make submit-p1
 ```
 
+then manually add your report into the zip file, and submit to Web Learning.
+
 Here's some information about tests:
 
 For tests start with `SortedKeys`, the key is equal to the row id, so you can pass it without storing row id.
@@ -136,3 +138,4 @@ For each test, you'll get the whole score if you pass the test within reasonable
 10. LongVersionChain_RandomTs: Require task 3. Note that this test have a large number of version link update.
 11. LongVersionChain_SequentialTs_RangeQuery: Require task 1 & 2. Note that this test have a large number of version link updates and range queries.
 12. LongVersionChain_RandomTs_RangeQuery: Require ALL task. Note that this test have a large number of version link updates and range queries.
+13. 
