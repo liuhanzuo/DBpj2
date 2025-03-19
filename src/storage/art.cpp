@@ -139,6 +139,7 @@ static void loadKey(data_t data, key_t key) {
 #endif
 }
 
+#if __SSE2__ == 1
 static inline uint32_t ctz(uint16_t x) {
 #ifdef __GNUC__
     return __builtin_ctz(x);
@@ -150,6 +151,7 @@ static inline uint32_t ctz(uint16_t x) {
     return n - (x & 1);
 #endif
 }
+#endif // __SSE2__ == 1
 
 TreePointer& findChild(ArtNode* n, uint8_t keyByte) {
     switch (n->type) {
