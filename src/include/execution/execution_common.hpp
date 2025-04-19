@@ -5,7 +5,7 @@
 namespace babydb {
 
 class Index;
-class ExecutionContext;
+struct ExecutionContext;
 class Transaction;
 class WriteTableGuard;
 
