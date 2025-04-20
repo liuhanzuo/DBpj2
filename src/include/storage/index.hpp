@@ -8,7 +8,7 @@
 
 namespace babydb {
 
-class ExecutionContext;
+struct ExecutionContext;
 class Transaction;
 
 //! We only support index with the primary key.
