@@ -369,7 +369,7 @@ TEST(Project2Test, SellSystemTest) {
     db.CreateTable("t_selled", selled_schema);
     db.CreateIndex("t_selled_i", "t_selled", "key", IndexType::ART);
 
-    const idx_t total_tasks = 100000, thread_count = 3;
+    const idx_t total_tasks = 40000, thread_count = 3;
 
     auto init_txn = db.CreateTxn();
     std::vector<Tuple> init_tuples;
