@@ -85,6 +85,9 @@ TEST(Project2Test, DirtyRead) {
     EXPECT_EQ(RunOperator(update_operator_1), std::vector<Tuple>());
     EXPECT_EQ(RunOperator(*read_operator_1), (std::vector<Tuple>{Tuple{0, 1}}));
     EXPECT_EQ(RunOperator(*read_operator_2), (std::vector<Tuple>{Tuple{0, 0}}));
+    EXPECT_EQ(RunOperator(update_operator_1), std::vector<Tuple>());
+    EXPECT_EQ(RunOperator(*read_operator_1), (std::vector<Tuple>{Tuple{0, 2}}));
+    EXPECT_EQ(RunOperator(*read_operator_2), (std::vector<Tuple>{Tuple{0, 0}}));
     EXPECT_EQ(db.Commit(*txn1), true);
     EXPECT_EQ(db.Commit(*txn2), true);
 }
@@ -179,6 +182,8 @@ TEST(Project2Test, AbortTest) {
     EXPECT_EQ(RunOperator(*read_operator_1), (std::vector<Tuple>{Tuple{0, 0}}));
     EXPECT_EQ(RunOperator(update_operator_1), std::vector<Tuple>());
     EXPECT_EQ(RunOperator(*read_operator_1), (std::vector<Tuple>{Tuple{0, 1}}));
+    EXPECT_EQ(RunOperator(update_operator_1), std::vector<Tuple>());
+    EXPECT_EQ(RunOperator(*read_operator_1), (std::vector<Tuple>{Tuple{0, 2}}));
     EXPECT_NO_THROW(db.Abort(*txn1));
 
     auto txn2 = db.CreateTxn();
@@ -279,12 +284,12 @@ TEST(Project2Test, BankSystemTest) {
         std::uniform_int_distribution<idx_t> dist_target(n / 2, n - 1);
         idx_t local_tasks = 0;
         while (executed_tasks.fetch_add(1) < total_tasks) {
+            auto source = names[dist_source(rnd)];
+            auto target = names[dist_target(rnd)];
             bool success;
             do {
                 std::shared_ptr<Transaction> txn;
                 try {
-                    auto source = names[dist_source(rnd)];
-                    auto target = names[dist_target(rnd)];
                     txn = db.CreateTxn();
                     auto read_operator_source =
                         std::make_shared<RangeIndexScanOperator>(db.GetExecutionContext(txn), "t0", schema, schema, "t0_i0", RangeInfo{source, source});
@@ -515,12 +520,12 @@ TEST(Project2Test, GCTest) {
             std::uniform_int_distribution<idx_t> dist_target(n / 2, n - 1);
             idx_t local_tasks = 0;
             while (executed_tasks.fetch_add(1) < total_tasks) {
+                auto source = names[dist_source(rnd)];
+                auto target = names[dist_target(rnd)];
                 bool success;
                 do {
                     std::shared_ptr<Transaction> txn;
                     try {
-                        auto source = names[dist_source(rnd)];
-                        auto target = names[dist_target(rnd)];
                         txn = db.CreateTxn();
                         auto read_operator_source =
                             std::make_shared<RangeIndexScanOperator>(db.GetExecutionContext(txn), "t0", schema, schema, "t0_i0", RangeInfo{source, source});
@@ -597,11 +602,11 @@ TEST(Project2Test, GCTest) {
             while (executed_tasks.fetch_add(1) < total_tasks) {
                 blocked_txns[thread_id].push_back(db.CreateTxn());
                 bool success;
+                auto source = names[dist_source(rnd)];
+                auto target = names[dist_target(rnd)];
                 do {
                     std::shared_ptr<Transaction> txn;
                     try {
-                        auto source = names[dist_source(rnd)];
-                        auto target = names[dist_target(rnd)];
                         txn = db.CreateTxn();
                         auto read_operator_source =
                             std::make_shared<RangeIndexScanOperator>(db.GetExecutionContext(txn), "t0", schema, schema, "t0_i0", RangeInfo{source, source});
