@@ -177,8 +177,8 @@ You can see `test/project2/project2_test.cpp` to get more details about the work
 
 **Submission:** Submit the whole `src/` file folder and the report pdf. Add all files into a zip file.
 
-**Important Notice:** If your code has any one of the following problems, you will get 0 points for the whole project 2:
+**Important Notice:** If your code has any one of the following problems, you will get **0 points** for the whole project 2:
 
-1. Memory leak or other memory management problems. We check this by `asan` which is enabled by default in the `Debug` mode.
+1. Memory leak or other memory management problems. We check this by `asan` which is enabled by default in the `Debug` mode. You can check if the `asan` on your computer can detect memory leaks, if not, try build BabyDB with `BABYDB_SANITIZER=leak`.
 1. Any Lock (except for the `shared_mutex` on the whole database we given, but you cannot modify any sentence about it). Since MVCC and OCC are lock-free concurrency control methods. Latches are acceptable, the standard for distinguishing between locks and latches is, when getting a mutex, if your code will release the mutex after a finite time in the same `Operator`.
 1. Any behavior to identify workload. Although we will grade your implementation on these 8 testcases, your implementation should work well on any possible workload.
