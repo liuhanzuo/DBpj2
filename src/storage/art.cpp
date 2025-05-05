@@ -1,4 +1,6 @@
 #include "storage/art.hpp"
+#include "execution/execution_context.hpp" // Include the header file where ExecutionContext is fully defined
+#include "concurrency/transaction.hpp"       // Include the header file where Transaction is fully defined
 
 #include <cassert>
 #include <cstring>
@@ -64,13 +66,133 @@ struct ArtNode {
 static_assert(sizeof(ArtNode*) == sizeof(idx_t), "Please use 64-bit machine");
 
 //! Store a data or a pointer, distinguished by the last bit.
+class SkipListNode {
+    public:
+        // 修改构造函数，存储ExecutionContext而非timestamp
+        SkipListNode(idx_t id, ExecutionContext* exec_ctx, SkipListNode* head = nullptr) 
+            : row_id(id), exec_ctx_(exec_ctx), head(head) {
+            for (int i = 0; i < MAX_LEVEL; ++i) {
+                forward[i] = nullptr;
+            }
+        }
+        
+        idx_t GetRowId() { return row_id; }
+        ExecutionContext* GetExecutionContext() { return exec_ctx_; }
+        uint64_t GetTimestamp() { return exec_ctx_ ? exec_ctx_->txn_.read_ts_ : 0; } // 从上下文中获取时间戳
+        SkipListNode* GetForward(int level) { return forward[level]; }
+        SkipListNode* GetHead() { return head; }
+        
+        void SetForward(int level, SkipListNode* node) { forward[level] = node; }
+        void SetHead(SkipListNode* h) { head = h; }
+        static const int MAX_LEVEL = 16;
+    
+    private:
+        idx_t row_id;
+        ExecutionContext* exec_ctx_;  // 存储执行上下文
+        SkipListNode* forward[MAX_LEVEL];
+        SkipListNode* head;
+    };
+    
+    
+class SkipList {
+public:
+    SkipList() : head_(0, 0), level_(1) {
+        for (int i = 0; i < SkipListNode::MAX_LEVEL; ++i) {
+            head_.SetForward(i, nullptr);
+        }
+    }
+
+    ~SkipList() {
+        SkipListNode* current = head_.GetForward(0);
+        while (current != nullptr) {
+            SkipListNode* next = current->GetForward(0);
+            delete current;
+            current = next;
+        }
+    }
+
+    void Insert(idx_t row_id, ExecutionContext* exec_ctx) {
+        SkipListNode* update[SkipListNode::MAX_LEVEL];
+        SkipListNode* current = &head_;
+        
+        uint64_t ts = exec_ctx->txn_.read_ts_; // 从上下文中获取时间戳
+        
+        // 查找插入位置(按时间戳排序)
+        for (int i = level_ - 1; i >= 0; --i) {
+            while (current->GetForward(i) != nullptr && 
+                   current->GetForward(i)->GetTimestamp() > ts) {
+                current = current->GetForward(i);
+            }
+            update[i] = current;
+        }
+        
+        // 创建新节点并插入
+        SkipListNode* new_node = new SkipListNode(row_id, exec_ctx, &head_);
+        for (int i = 0; i < RandomLevel(); ++i) {
+            new_node->SetForward(i, update[i]->GetForward(i));
+            update[i]->SetForward(i, new_node);
+        }
+    }
+
+    SkipListNode* Find(uint64_t query_ts) {
+        // 查找逻辑不变，但使用GetTimestamp()比较
+        SkipListNode* current = &head_;
+        for (int i = level_ - 1; i >= 0; --i) {
+            while (current->GetForward(i) != nullptr && 
+                   current->GetForward(i)->GetTimestamp() > query_ts) {
+                current = current->GetForward(i);
+            }
+        }
+        
+        current = current->GetForward(0);
+        if (current != nullptr && current->GetTimestamp() <= query_ts) {
+            return current;
+        }
+        return nullptr;
+    }
+    SkipListNode* FindByExecutionContext(ExecutionContext* exec_ctx) {
+        uint64_t ts = exec_ctx->txn_.read_ts_;
+        return Find(ts);
+    }
+
+private:
+    int RandomLevel() {
+        int level = 1;
+        while ((rand() % 2) && level < SkipListNode::MAX_LEVEL) {
+            level++;
+        }
+        return level;
+    }
+
+    SkipListNode head_;
+    int level_;
+};
+    //! Store a data or a pointer, distinguished by the last bit.
 class TreePointer {
 public:
     // Equals to TreePointer(nullptr)
-    TreePointer() : ptr_or_data_(0) {}
-    TreePointer(ArtNode* ptr) : ptr_or_data_(reinterpret_cast<uint64_t>(ptr)) {}
-    TreePointer(data_t data) : ptr_or_data_((static_cast<uint64_t>(data) << 1) | 1) {}
-
+    // TreePointer() : ptr_or_data_(0), row_id(0) {}
+    TreePointer() : ptr_or_data_(0) {
+        skip_list_ = nullptr;
+    }
+    // TreePointer(ArtNode* ptr) : ptr_or_data_(reinterpret_cast<uint64_t>(ptr)), row_id(0) {}
+    // TreePointer(data_t data) : ptr_or_data_((static_cast<uint64_t>(data) << 1) | 1), row_id(0) {}
+    TreePointer(ArtNode* ptr) : ptr_or_data_(reinterpret_cast<uint64_t>(ptr)) {
+        skip_list_ = nullptr;
+    }
+    TreePointer(data_t data, idx_t id, ExecutionContext* exec_ctx) 
+        : ptr_or_data_((static_cast<uint64_t>(data) << 1) | 1) {
+        skip_list_ = new SkipList();
+        skip_list_->Insert(id, exec_ctx);
+    }
+    // ~TreePointer() {
+    //     Chain* current = chain_head;
+    //     while (current != nullptr) {
+    //         Chain* next = current->GetNext();
+    //         delete current;
+    //         current = next;
+    //     }
+    // }
 public:
     bool IsLeaf() {
         return ptr_or_data_ % 2 == 1;
@@ -87,12 +209,26 @@ public:
     bool Empty() {
         return ptr_or_data_ == 0;
     }
+    idx_t GetRowId(ExecutionContext& exec_ctx) {
+        SkipListNode* node = skip_list_->FindByExecutionContext(&exec_ctx);
+        return node ? node->GetRowId() : INVALID_ID;
+    }
+
+    void InsertVersion(idx_t row_id, ExecutionContext* exec_ctx) {
+        skip_list_->Insert(row_id, exec_ctx);
+    }
+
+    SkipList* GetSkipList() {
+        return skip_list_;
+    }
 
 private:
     uint64_t ptr_or_data_;
+    SkipList* skip_list_; 
 };
 
-static_assert(sizeof(TreePointer) == sizeof(idx_t));
+
+// static_assert(sizeof(TreePointer) == sizeof(idx_t));
 
 struct Node4 : ArtNode {
     uint8_t key[4];
@@ -355,20 +491,43 @@ TreePointer lookup(TreePointer node, key_t key, uint32_t depth) {
 }
 
 
-void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, data_t value);
+void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, data_t value, idx_t row_id, ExecutionContext &exec_ctx);
 void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
 void insertNode16(Node16* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
 void insertNode48(Node48* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
 void insertNode256(Node256* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer child);
+SkipListNode* lookupVersion(TreePointer node, key_t key, uint32_t depth, ExecutionContext &exec_ctx) {
+    TreePointer found = lookup(node, key, depth);
+    if (found.Empty()) return nullptr;
+    
+    return found.GetSkipList()->Find(exec_ctx.txn_.read_ts_);
+}
+// void ValidateChain(Chain* head) {
+//     Chain* current = head;
+//     while(current) {
+//         assert(current->GetHead() == head);
+//         current = current->GetNext();
+//     }
+// }
 
-void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, data_t value) {
+void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, data_t value, idx_t row_id, ExecutionContext &exec_ctx) {
+    // if (!lookup(node, key, depth).Empty()) {
+    //     throw std::logic_error("Key already exists in ART");
+    // }
     if (node.Empty()) {
-        *nodeRef = TreePointer(value);
+        *nodeRef = TreePointer(value, row_id, &exec_ctx);
         return;
     }
     if (node.IsLeaf()) {
         key_t existingKey;
         loadKey(node.AsData(), existingKey);
+        
+        if(memcmp(existingKey, key, ART_KEY_LENGTH) == 0) {
+            // 直接插入新版本到跳表中
+            node.InsertVersion(row_id, &exec_ctx);
+            return;
+        }
+
         uint32_t newPrefixLength = 0;
         while (existingKey[depth + newPrefixLength] == key[depth + newPrefixLength]) {
             newPrefixLength++;
@@ -377,8 +536,9 @@ void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, d
         newNode->prefixLength = newPrefixLength;
         std::memcpy(newNode->prefix, key + depth, std::min(newPrefixLength, MAX_PREFIX_LENGTH));
         *nodeRef = newNode;
+        TreePointer node_(value, row_id, &exec_ctx);
         insertNode4(newNode, nodeRef, existingKey[depth + newPrefixLength], node);
-        insertNode4(newNode, nodeRef, key[depth + newPrefixLength], TreePointer(value));
+        insertNode4(newNode, nodeRef, key[depth + newPrefixLength], node_);
         return;
     }
     if (node->prefixLength) {
@@ -399,7 +559,8 @@ void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, d
                 insertNode4(newNode, nodeRef, minKey[depth + mismatchPos], node);
                 std::memmove(node->prefix, minKey + depth + mismatchPos + 1, std::min(node->prefixLength, MAX_PREFIX_LENGTH));
             }
-            insertNode4(newNode, nodeRef, key[depth + mismatchPos], TreePointer(value));
+            TreePointer node_(value, row_id, &exec_ctx);
+            insertNode4(newNode, nodeRef, key[depth + mismatchPos], node_);
             return;
         }
         depth += node->prefixLength;
@@ -407,10 +568,10 @@ void insert(TreePointer node, TreePointer* nodeRef, key_t key, uint32_t depth, d
     auto node_p = node.AsPtr();
     auto &child = findChild(node_p, key[depth]);
     if (!child.Empty()) {
-        insert(child, &child, key, depth + 1, value);
+        insert(child, &child, key, depth + 1, value, row_id, exec_ctx);
         return;
     }
-    TreePointer newNode = TreePointer(value);
+    TreePointer newNode = TreePointer(value, row_id, &exec_ctx);
     switch (node->type) {
         case NodeType4:
             insertNode4(static_cast<Node4*>(node_p), nodeRef, key[depth], newNode);
@@ -432,7 +593,7 @@ void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer
         uint32_t pos;
         for (pos = 0; (pos < node->count) && (node->key[pos] < keyByte); pos++);
         std::memmove(node->key + pos + 1, node->key + pos, node->count - pos);
-        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(data_t));
+        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(TreePointer));
         node->key[pos] = keyByte;
         node->child[pos] = child;
         node->count++;
@@ -444,7 +605,7 @@ void insertNode4(Node4* node, TreePointer* nodeRef, uint8_t keyByte, TreePointer
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, MAX_PREFIX_LENGTH));
         for (idx_t i = 0; i < 4; i++)
             newNode->key[i] = flipSign(node->key[i]);
-        std::memcpy(newNode->child, node->child, node->count * sizeof(data_t));
+        std::memcpy(newNode->child, node->child, node->count * sizeof(TreePointer));
         delete node;
         insertNode16(newNode, nodeRef, keyByte, child);
     }
@@ -467,20 +628,28 @@ void insertNode16(Node16* node, TreePointer* nodeRef, uint8_t keyByte, TreePoint
 #endif // __SSE2__ == 1
 
         std::memmove(node->key + pos + 1, node->key + pos, node->count - pos);
-        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(data_t));
+        std::memmove(node->child + pos + 1, node->child + pos, (node->count - pos) * sizeof(TreePointer));
         node->key[pos] = keyByteFlipped;
         node->child[pos] = child;
         node->count++;
     } else {
         Node48* newNode = new Node48();
         *nodeRef = newNode;
-        std::memcpy(newNode->child, node->child, node->count * sizeof(data_t));
+        std::memcpy(newNode->child, node->child, node->count * sizeof(TreePointer));
         for (idx_t i = 0; i < node->count; i++) {
             newNode->childIndex[flipSign(node->key[i])] = i;
         }
         newNode->prefixLength = node->prefixLength;
         std::memcpy(newNode->prefix, node->prefix, std::min(node->prefixLength, MAX_PREFIX_LENGTH));
         newNode->count = node->count;
+        // for (idx_t i = 0; i < node->count; i++) {
+        //     newNode->childIndex[flipSign(node->key[i])] = i;
+        //     newNode->child[i] = node->child[i];
+        //     // if (node->child[i].IsLeaf()) {
+        //     //     newNode->child[i].SetRowId(node->child[i].GetRowId());
+        //     // }
+        // }
+        
         delete node;
         insertNode48(newNode, nodeRef, keyByte, child);
     }
@@ -641,9 +810,119 @@ void eraseNode256(Node256* node, TreePointer* nodeRef, uint8_t keyByte) {
 }
 
 void rangeScan(TreePointer node, key_t lowerKey, key_t upperKey, bool contain_start, bool contain_end,
-               std::vector<babydb::idx_t>& row_ids) {
+               std::vector<babydb::idx_t>& row_ids, uint32_t depth, bool left_in_the_area, bool right_in_the_area, ExecutionContext& exec_ctx) {
     // P1 TODO: Add your code here
-    throw std::logic_error("Unimplemented function");
+    // throw std::logic_error("Unimplemented function");
+    if (node.Empty()) {
+        return;
+    }
+    if (node.IsLeaf()) {
+        if (left_in_the_area && right_in_the_area) {
+            row_ids.push_back(node.GetRowId(exec_ctx));
+            return;
+        } else {
+            key_t leafKey;
+            data_t leafData = node.AsData();
+            loadKey(leafData, leafKey);
+            bool already_bigger = false;
+            if (!left_in_the_area) {
+                for (idx_t i = depth; i < ART_KEY_LENGTH; i++) {
+                    if (leafKey[i] < lowerKey[i]) return;
+                    if (leafKey[i] > lowerKey[i]) {
+                        already_bigger = true;
+                        break;
+                    }
+                }
+                if (!already_bigger && !contain_start) return;
+            }
+            bool already_smaller = false;
+            if (!right_in_the_area) {
+                already_smaller = false;
+                for (idx_t i = depth; i < ART_KEY_LENGTH; i++) {
+                    if (leafKey[i] > upperKey[i]) return;
+                    if (leafKey[i] < upperKey[i]) {
+                        already_smaller = true;
+                        break;
+                    }
+                }
+                if (!already_smaller && !contain_end) return;
+            }
+            row_ids.push_back(node.GetRowId(exec_ctx));
+            return;
+        }
+    }
+    bool left_in_the_area_new = left_in_the_area;
+    bool right_in_the_area_new = right_in_the_area;
+    if (node->prefixLength) {
+        for (uint32_t pos = 0; pos < node->prefixLength; pos++) {
+            if (!left_in_the_area_new && (lowerKey[depth + pos] > node->prefix[pos])) 
+                return; // already smaller
+            if (!right_in_the_area_new && (upperKey[depth + pos] < node->prefix[pos])) 
+                return; // already bigger
+            left_in_the_area_new = left_in_the_area_new || (lowerKey[depth + pos] < node->prefix[pos]); // !left_in_the_area: lowerkey[0:depth] == node[0:depth]
+            right_in_the_area_new = right_in_the_area_new || (upperKey[depth + pos] > node->prefix[pos]);
+        }
+        depth += node->prefixLength;
+    }
+    switch (node->type) {
+        case NodeType4: {
+            Node4* n = static_cast<Node4*>(node.AsPtr());
+            for (int i = 0; i < n->count; i++) {
+                uint8_t k = n->key[i];
+                if (!left_in_the_area_new && k < lowerKey[depth]) continue;
+                if (!right_in_the_area_new && k > upperKey[depth]) continue;
+                bool l = left_in_the_area_new || (k > lowerKey[depth]);
+                bool r = right_in_the_area_new || (k < upperKey[depth]);
+                rangeScan(n->child[i], lowerKey, upperKey, contain_start, contain_end, row_ids, depth + 1, l, r, exec_ctx);
+            }
+            break;
+        }
+        case NodeType16: {
+            Node16* n = static_cast<Node16*>(node.AsPtr());
+            for (int i = 0; i < n->count; i++) {
+                uint8_t storedKey = flipSign(n->key[i]); // flip back to original byte
+                if (!left_in_the_area_new && storedKey < lowerKey[depth]) continue;
+                if (!right_in_the_area_new && storedKey > upperKey[depth]) continue;
+                bool l = left_in_the_area_new || (storedKey > lowerKey[depth]);
+                bool r = right_in_the_area_new || (storedKey < upperKey[depth]);
+                rangeScan(n->child[i], lowerKey, upperKey, contain_start, contain_end, row_ids, depth + 1, l, r, exec_ctx);
+            }
+            break;
+        }
+        case NodeType48: {
+            Node48* n = static_cast<Node48*>(node.AsPtr());
+            for (int i = 0; i < 256; i++) {
+                int idx = n->childIndex[i];
+                if (idx == EMPTY_MARKER) continue;
+                uint8_t k = static_cast<uint8_t>(i);
+                if (!left_in_the_area_new && k < lowerKey[depth]) continue;
+                if (!right_in_the_area_new && k > upperKey[depth]) continue;
+                bool l = left_in_the_area_new || (k > lowerKey[depth]);
+                bool r = right_in_the_area_new || (k < upperKey[depth]);
+                rangeScan(n->child[idx], lowerKey, upperKey, contain_start, contain_end, row_ids, depth + 1, l, r, exec_ctx);
+            }
+            break;
+        }
+        case NodeType256: {
+            Node256* n = static_cast<Node256*>(node.AsPtr());
+            for (int i = 0; i < 256; i++) {
+                TreePointer child = n->child[i];
+                if (child.Empty()) continue;
+                uint8_t k = static_cast<uint8_t>(i);
+                if (!left_in_the_area_new && k < lowerKey[depth]) continue;
+                if (!right_in_the_area_new && k > upperKey[depth]) continue;
+                bool l = left_in_the_area_new || (k > lowerKey[depth]);
+                bool r = right_in_the_area_new || (k < upperKey[depth]);
+                rangeScan(child, lowerKey, upperKey, contain_start, contain_end, row_ids, depth + 1, l, r, exec_ctx);
+            }
+            break;
+        }
+        default: {
+            B_ASSERT_MSG(false, "Invalid ArtNode Type in ART");
+            break;
+        }
+    }
+    
 }
 
 void destroy(TreePointer node) {
@@ -651,6 +930,7 @@ void destroy(TreePointer node) {
         return;
     }
     if (node.IsLeaf()) {
+        delete node.GetSkipList();
         return;
     }
     switch (node->type) {
@@ -728,18 +1008,20 @@ void ArtIndex::InsertEntry(const data_t &key, idx_t row_id, ExecutionContext &ex
     }
     key_t keyBytes;
     loadKey(key, keyBytes);
-    insert(art_tree_->root_, &art_tree_->root_, keyBytes, 0, key);
+    insert(art_tree_->root_, &art_tree_->root_, keyBytes, 0, key, row_id, exec_ctx);
 }
 
 idx_t ArtIndex::LookupKey(const data_t &key, ExecutionContext &exec_ctx) {
     // P1 TODO: This version returns the original key, change it to return the rowid & Add ts support
     key_t keyBytes;
     loadKey(key, keyBytes);
-    TreePointer leaf = lookup(art_tree_->root_, keyBytes, 0);
-    if (leaf.Empty() || !leaf.IsLeaf()) {
-        return INVALID_ID;
-    }
-    return static_cast<idx_t>(leaf.AsData());
+    // TreePointer leaf = lookup(art_tree_->root_, keyBytes, 0);
+    // if (leaf.Empty() || !leaf.IsLeaf()) {
+    //     return INVALID_ID;
+    // }
+    // return leaf.GetChain()->GetRowId();
+    SkipListNode* leaf = lookupVersion(art_tree_->root_, keyBytes, 0, exec_ctx);
+    return leaf->GetRowId();
 }
 
 void ArtIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, ExecutionContext &exec_ctx) {
@@ -749,7 +1031,7 @@ void ArtIndex::ScanRange(const RangeInfo &range, std::vector<idx_t> &row_ids, Ex
     loadKey(range.start, lowerKey);
     loadKey(range.end, upperKey);
 
-    rangeScan(art_tree_->root_, lowerKey, upperKey, range.contain_start, range.contain_end, row_ids);
+    rangeScan(art_tree_->root_, lowerKey, upperKey, range.contain_start, range.contain_end, row_ids, 0, false, false, exec_ctx);
 }
 
 } // namespace babydb
