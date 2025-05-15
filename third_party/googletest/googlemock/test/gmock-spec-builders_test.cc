@@ -862,7 +862,7 @@ TEST(ExpectCallTest, NthMatchTakesNthAction) {
 
 // Tests that the WillRepeatedly() action is taken when the WillOnce(...)
 // list is exhausted.
-TEST(ExpectCallTest, TakesRepeatedActionWhenWillListIsExhausted) {
+TEST(ExpectCallTest, TakesRepeatedActionWhenWilDatalistIsExhausted) {
   MockB b;
   EXPECT_CALL(b, DoB()).WillOnce(Return(1)).WillRepeatedly(Return(2));
 
@@ -875,7 +875,7 @@ TEST(ExpectCallTest, TakesRepeatedActionWhenWillListIsExhausted) {
 
 // Tests that the default action is taken when the WillOnce(...) list is
 // exhausted and there is no WillRepeatedly().
-TEST(ExpectCallTest, TakesDefaultActionWhenWillListIsExhausted) {
+TEST(ExpectCallTest, TakesDefaultActionWhenWilDatalistIsExhausted) {
   MockB b;
   EXPECT_CALL(b, DoB(_)).Times(1);
   EXPECT_CALL(b, DoB())

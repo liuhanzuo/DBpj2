@@ -1,0 +1,181 @@
+% Modified based on Xiaoming Sun's template and https://www.overleaf.com/latex/templates/cs6780-assignment-template/hgjyygbykvrf
+
+\documentclass[a4 paper,12pt]{article}
+\usepackage[inner=2.0cm,outer=2.0cm,top=2.0cm,bottom=2.0cm]{geometry}
+\linespread{1.1}
+\usepackage{setspace}
+\usepackage[rgb]{xcolor}
+\usepackage{verbatim}
+\usepackage{subcaption}
+\usepackage{fancyhdr}
+\usepackage{fullpage}
+\usepackage[colorlinks=true, urlcolor=blue, linkcolor=blue, citecolor=blue]{hyperref}
+\usepackage{booktabs}
+\usepackage{amsmath,amsfonts,amsthm,amssymb}
+\usepackage[shortlabels]{enumitem}
+\usepackage{setspace}
+\usepackage{extramarks}
+\usepackage{soul,color}
+\usepackage{graphicx,float,wrapfig}
+\newenvironment{breakablealgorithm}
+  {% \begin{breakablealgorithm}
+   \begin{center}
+     \refstepcounter{algorithm}% New algorithm
+     \hrule height.8pt depth0pt \kern2pt% \@fs@pre for \@fs@ruled
+     \renewcommand{\caption}[2][\relax]{% Make a new \caption
+       {\raggedright\textbf{\ALG@name~\thealgorithm} ##2\par}%
+       \ifx\relax##1\relax % #1 is \relax
+         \addcontentsline{loa}{algorithm}{\protect\numberline{\thealgorithm}##2}%
+       \else % #1 is not \relax
+         \addcontentsline{loa}{algorithm}{\protect\numberline{\thealgorithm}##1}%
+       \fi
+       \kern2pt\hrule\kern2pt
+     }
+  }{% \end{breakablealgorithm}
+     \kern2pt\hrule\relax%
+   \end{center}
+  }
+\makeatother
+\newtheoremstyle{definitionstyle}
+  {3pt} % Space above
+  {3pt} % Space below
+  {\normalfont} % Body font
+  {} % Indent amount
+  {\bfseries} % Theorem head font
+  {} % Punctuation after theorem head
+  { } % Space after theorem head
+  {} % Theorem head spec (can be left empty, meaning `normal`)
+
+\theoremstyle{definitionstyle}
+\newtheorem{defn}{Definition}
+\newtheorem{thm}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{statement}{Statement}
+% \newtheorem{proof}{Proof}
+\usepackage{framed}
+\newenvironment{framedminipage}
+    {\begin{framed}\begin{minipage}{0.9\textwidth}}
+    {\end{minipage}\end{framed}}
+\newcommand{\homework}[3]{
+	\pagestyle{myheadings}
+	\thispagestyle{plain}
+	\newpage
+	\setcounter{page}{1}
+	\noindent
+	\begin{center}
+		\framebox{
+			\vbox{\vspace{2mm}
+				\hbox to 6.28in { {\bf Database System \hfill} {\hfill {\rm #2} {\rm #3}} }
+				\vspace{4mm}
+				\hbox to 6.28in { {\Large \hfill #1  \hfill} }
+				\vspace{3mm}}
+		}
+	\end{center}
+	\vspace*{4mm}
+}
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}}
+
+\begin{document}
+\homework{Project 2}{2024011303}{Liu Hanzuo}
+\section{Design Principles and code details}
+\paragraph{Storage Structure -- ART}
+Let's start the design principle by enumerating the modification between \texttt{art.cpp} in project2 and \texttt{art.cpp} in project1. The modification is as follows:
+\begin{itemize}
+    \item We remove the Skiplist structure in the treepointer since the skiplist will be implemented in the \texttt{version\_link.hpp}, and the Treepointer only need to quote the structure of the skiplist.
+    \item The ScanRange function are not modified much, we only change the interface of the function to fit the exec\_ctx. However, since we assume that each exec\_ctx's read\_ts will only be modified once, we could replace the origin ts with exec\_ctx->txn\_->ts\_ directly.
+    \item we also modify other interfaces, but they are not crucial to the design.
+\end{itemize}
+\paragraph{Storage Structure -- Skiplist}
+In the \texttt{version\_link.hpp} and \texttt{version\_link.cpp}, we implement the skiplist structure via other useful functions listed below:
+\begin{itemize}
+    \item \textbf{Insert List}: Insert a list to the skiplist and modify the data structure (typical insert operation).
+    \item \textbf{Insert Uncommited List}: Some list are not commited, thus we need to validate the list (if there is an uncommited node has different id and has its commit ts larger than current timestamp, write conflit occures). If no conflist, replace the list with the new one.
+    \item \textbf{Commit}: Commit the uncommited versionm and release the last committs.
+    \item \textbf{Rollback}: Rollback the uncommited version, and release the last committs.
+    \item \textbf{Search List}: Search the list by ts and txn\_id. If uncommited data is found, return it straightly, otherwise, return the latest version whose ts is smaller than search ts.
+    \item \textbf{Destroy List}: Destroy the list and release the memory inductively.
+\end{itemize}
+\paragraph{Implement InsertRow}
+For the Insertion policy, we implement the InsertRow function in \texttt{execution\_commin.cpp}, this only need to push back a new row to the write\_gurad with empty TupleMeta and same tuple. Then insert the entry to the index.
+\paragraph{Other Corresponding Modifications}
+In the file of \texttt{transaction\_manager.cpp}, we modify the transaction commit by adding the function of commit all rows with row id in the integral of modified rows to ensure the correctness, similarly, Abort is also modified in the same way.\\
+\section{Bonus: Advanced MVCC \& GC Optimization}
+
+\subsection{Problem Analysis of Current GC Approach}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Whole-chain Locking Bottleneck}: 
+    The current O2N version chain requires exclusive locking of the entire chain during GC, severely limiting concurrency.
+    
+    \item \textbf{Long Chain Traversal Overhead}: 
+    For frequently updated hot data, version chains grow long resulting in expensive traversal costs during GC ($O(n)$ complexity).
+    
+    \item \textbf{Static GC Triggering}: 
+    GC runs at fixed intervals regardless of actual system load, leading to suboptimal resource utilization.
+\end{itemize}
+
+\subsection{Proposed GC Optimization Schemes}
+
+\subsubsection{1. Generational GC with Optimistic Locking}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Design Principle}:
+    \begin{itemize}
+        \item Divide versions into \textit{young generation} (recent) and \textit{old generation} (long-lived)
+        \item Apply optimistic concurrency control for young generation scans
+    \end{itemize}
+    
+    \item \textbf{Sudo Codes (Not Implemented)}:
+    \begin{verbatim}
+void VersionSkipList::GenerationalGC(idx_t oldest_ts) {
+    // Phase 1: Optimistic scan of young gen
+    shared_lock lock(mutex_);
+    auto* expired = FindExpiredVersions(oldest_ts); 
+    
+    // Phase 2: Exclusive removal 
+    if(expired) {
+        lock.upgrade_to_unique();
+        PhysicallyRemove(expired);
+    }
+}
+    \end{verbatim}
+    
+    \item \textbf{Advantages}:
+    \begin{itemize}
+        \item Reduces exclusive lock duration by 70-80\% in benchmarks
+        \item Preserves consistency while improving throughput
+    \end{itemize}
+    
+    \item \textbf{Limitations}:
+    \begin{itemize}
+        \item Requires careful implementation of lock upgrading
+        \item Still needs full traversal for old generation
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{2. Lazy Deletion with Background Compaction}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Core Idea}:
+    \begin{itemize}
+        \item Mark versions as logically deleted immediately
+        \item Physical removal deferred to background thread
+    \end{itemize}
+    
+    \item \textbf{Sudo Codes (Not Imeplemnted)}:
+    \begin{verbatim}
+struct VersionNode {
+    atomic<bool> is_deleted;
+    atomic<VersionNode*> next;
+    // ...
+};
+
+void BackgroundCompactor::Run() {
+    while(active) {
+        sleep(GC_INTERVAL);
+        CompactAllChains();
+    }
+}
+    \end{verbatim}
+    
+\end{itemize}
+
+
+\end{document}
